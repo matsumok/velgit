@@ -81,42 +81,96 @@ pixelmatchで差分検出
 将来の精度改善に備えてtraitで抽象化する。
 
 ```rust
-trait PdfDiffer {
-    fn diff(old: &[u8], new: &[u8]) -> DiffResult;
+// src-tauri/src/diff/mod.rs
+pub trait PdfDiffer: Send + Sync {
+    fn diff(&self, old_pixels: &[u8], new_pixels: &[u8], width: u32, height: u32)
+        -> Result<DiffResult, DiffError>;
+    fn name(&self) -> &'static str;
 }
 
-// Phase 1
+// Phase 1: ピクセル比較
 struct PixelmatchDiffer;
 
-// Phase 2
+// Phase 2: ベクター構造比較（将来）
 struct VectorDiffer;
 
-// Phase 3
-struct AiDiffer;
+// Phase 3: AI差分検出
+struct AiDiffer; // Pixelmatch + AI の3段階パイプライン
 ```
 
-### AiDiffer 実装方針（Phase 3）
+### 3段階差分検知パイプライン（Phase 3）
 
-**推論ランタイム**: `ort` crate v2.x（ONNX Runtime Rust bindings）
-- DirectML実行プロバイダーでNVIDIA/Intel/AMD GPU対応（CUDA不要）
-- `onnxruntime.dll` を `pdfium.dll` と同様にTauriバンドルに同梱
-
-**モデル構成**:
-- ゲートモデル: MobileNetV3-Small ONNX（~9MB）— 全タイルのスクリーニング
-- フィーチャーモデル: DINOv2 ViT-S/14 ONNX（~85MB）— パッチレベル差分検出
-
-**大判PDF対応（A1 300dpi = ~10,000×7,000px）**:
 ```
-Pass 1（72dpi）: MobileNetV3で全タイル(512×512)をスクリーニング
-Pass 2（300dpi）: 変化ありタイルのみDINOv2で精密検出
+Stage 1: Pixelmatch（全ページ・高速）
+  閾値A: pixel_threshold   … ピクセル色差の許容値（0-255）
+  閾値B: min_changed_ratio … 変化ピクセル率の下限（%）
+  → 変化マスク生成。閾値以下は「変化なし」で確定・終了
+
+        ↓ 変化ありタイルのみ（512×512）
+
+Stage 2: MobileNetV3ゲート（ノイズ除去）
+  閾値C: gate_confidence … 確信度の下限
+  → アンチエイリアス・レンダリング差を除去
+
+        ↓ 通過したタイルのみ
+
+Stage 3: DINOv2（構造差分・精密）
+  閾値D: feature_threshold … コサイン類似度の下限
+  → 変化領域の確信度スコアを算出
 ```
-ピーク使用メモリ ~124MB。CPU fallback必須（DirectML非対応環境向け）。
 
-**モデル配布**: 初回使用時に `%APPDATA%\Velgit\models\` へレイジーダウンロード（MSIには含めない）。
-SHA256で整合性検証。ファイアウォール環境向けに手動配置でも動作可能にする。
+**ヒートマップ表示（3色）**:
+- 黄: Stage 1のみ通過（微細変化）
+- オレンジ: Stage 2まで通過（中程度）
+- 赤: Stage 3まで通過（構造的変化）
 
-**注意**: DINOv2はImageNetで学習されており、CAD線図はドメイン外。
-類似度は絶対値ではなく相対値（ランキング）として使い、感度は設定で調整可能にする。
+**出力データ構造**:
+```rust
+pub struct DiffResult {
+    pub changed_regions: Vec<ChangedRegion>,
+    pub change_score: f32,        // 0.0=同一, 1.0=完全に異なる
+    pub heatmap: Option<Vec<u8>>, // PNG bytes（3色オーバーレイ）
+    pub stage_stats: StageStats,  // 各ステージの通過タイル数
+}
+pub struct ChangedRegion {
+    pub x: u32, pub y: u32, pub width: u32, pub height: u32,
+    pub stage: DiffStage,  // Pixel / Gate / Feature
+    pub confidence: f32,
+}
+```
+
+**閾値設定（ユーザー設定可能）**:
+```rust
+pub struct DiffConfig {
+    pub pixel_threshold: u8,       // デフォルト: 10
+    pub min_changed_ratio: f32,    // デフォルト: 0.01（1%）
+    pub gate_confidence: f32,      // デフォルト: 0.5
+    pub feature_threshold: f32,    // デフォルト: 0.15（コサイン距離）
+    pub tile_size: u32,            // デフォルト: 512
+}
+```
+
+### AiDiffer 技術選定（確定）
+
+| コンポーネント | 採用 | ライセンス | 配布方法 |
+|--------------|------|-----------|---------|
+| 推論ランタイム | `ort` crate v2.x（ONNX Runtime） | MIT | `onnxruntime.dll` をMSIに同梱 |
+| フィーチャーモデル | DINOv2 ViT-S/14 ONNX（~85MB） | Apache 2.0 | MSIに同梱 |
+| ゲートモデル | MobileNetV3-Small ONNX（~9MB） | Apache 2.0 | MSIに同梱 |
+| GPU対応 | DirectML（fallback: CPU） | MIT | `onnxruntime_providers_directml.dll` を同梱 |
+
+**MSI総サイズ見込み**: ~127MB（モデル・DLL込み）  
+**ライセンス義務**: Apache 2.0 / MIT の NOTICEファイルを配布物に同梱する  
+**注意**: DINOv2はImageNet学習済み（CADはドメイン外）。類似度は絶対値でなく相対値として使い、感度は設定で調整可能にする。
+
+### 大判PDF対応（A1 300dpi = ~10,000×7,000px）
+
+```
+Pass 1（72dpi）: 全体スクリーニング → 変化あり領域を特定
+Pass 2（300dpi）: 変化あり領域のみ高解像度で再処理
+```
+タイルサイズ: 512×512、stride 448（64pxオーバーラップ）  
+ピーク使用メモリ: ~124MB
 
 ---
 
