@@ -95,6 +95,29 @@ struct VectorDiffer;
 struct AiDiffer;
 ```
 
+### AiDiffer 実装方針（Phase 3）
+
+**推論ランタイム**: `ort` crate v2.x（ONNX Runtime Rust bindings）
+- DirectML実行プロバイダーでNVIDIA/Intel/AMD GPU対応（CUDA不要）
+- `onnxruntime.dll` を `pdfium.dll` と同様にTauriバンドルに同梱
+
+**モデル構成**:
+- ゲートモデル: MobileNetV3-Small ONNX（~9MB）— 全タイルのスクリーニング
+- フィーチャーモデル: DINOv2 ViT-S/14 ONNX（~85MB）— パッチレベル差分検出
+
+**大判PDF対応（A1 300dpi = ~10,000×7,000px）**:
+```
+Pass 1（72dpi）: MobileNetV3で全タイル(512×512)をスクリーニング
+Pass 2（300dpi）: 変化ありタイルのみDINOv2で精密検出
+```
+ピーク使用メモリ ~124MB。CPU fallback必須（DirectML非対応環境向け）。
+
+**モデル配布**: 初回使用時に `%APPDATA%\Velgit\models\` へレイジーダウンロード（MSIには含めない）。
+SHA256で整合性検証。ファイアウォール環境向けに手動配置でも動作可能にする。
+
+**注意**: DINOv2はImageNetで学習されており、CAD線図はドメイン外。
+類似度は絶対値ではなく相対値（ランキング）として使い、感度は設定で調整可能にする。
+
 ---
 
 ## ファイル・図面管理方針
