@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useState } from "react";
+import { PdfViewer } from "./components/PdfViewer";
 
 interface RepoInfo {
 	name: string;
@@ -29,6 +30,15 @@ function App() {
 	const [repo, setRepo] = useState<RepoInfo | null>(null);
 	const [commits, setCommits] = useState<CommitInfo[]>([]);
 	const [error, setError] = useState<string | null>(null);
+	const [pdfPath, setPdfPath] = useState<string | null>(null);
+
+	async function openPdf() {
+		const selected = await open({
+			multiple: false,
+			filters: [{ name: "PDF", extensions: ["pdf"] }],
+		});
+		if (selected) setPdfPath(selected as string);
+	}
 
 	async function openRepo() {
 		const selected = await open({ directory: true, multiple: false });
@@ -144,11 +154,24 @@ function App() {
 
 			{/* 右ペイン: PDFプレビュー + diff */}
 			<aside className="w-96 shrink-0 flex flex-col">
-				<div className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-border">
-					PDFプレビュー / Diff
+				<div className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-border flex items-center justify-between">
+					<span>PDFプレビュー / Diff</span>
+					<button
+						type="button"
+						onClick={openPdf}
+						className="text-xs px-2 py-1 bg-muted hover:bg-muted/70 rounded transition-colors"
+					>
+						開く
+					</button>
 				</div>
-				<div className="flex-1 p-4 text-sm text-muted-foreground italic">
-					ファイルを選択してください
+				<div className="flex-1 overflow-hidden">
+					{pdfPath ? (
+						<PdfViewer filePath={pdfPath} />
+					) : (
+						<div className="flex items-center justify-center h-full text-muted-foreground text-sm italic">
+							ファイルを選択してください
+						</div>
+					)}
 				</div>
 			</aside>
 		</div>
