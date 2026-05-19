@@ -1,4 +1,4 @@
-import { convertFileSrc } from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/core";
 import * as pdfjsLib from "pdfjs-dist";
 import workerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { useEffect, useRef, useState } from "react";
@@ -20,13 +20,17 @@ export function PdfViewer({ filePath }: Props) {
 		setPdf(null);
 		setCurrentPage(1);
 
-		const url = convertFileSrc(filePath);
-		const task = pdfjsLib.getDocument(url);
+		let task: pdfjsLib.PDFDocumentLoadingTask | null = null;
 
-		task.promise
+		invoke<ArrayBuffer>("read_pdf_bytes", { path: filePath })
+			.then((buffer) => {
+				if (cancelled) return;
+				task = pdfjsLib.getDocument({ data: buffer });
+				return task.promise;
+			})
 			.then((doc) => {
-				if (cancelled) {
-					doc.destroy();
+				if (!doc || cancelled) {
+					doc?.destroy();
 					return;
 				}
 				setPdf(doc);
@@ -36,7 +40,7 @@ export function PdfViewer({ filePath }: Props) {
 
 		return () => {
 			cancelled = true;
-			task.destroy();
+			task?.destroy();
 		};
 	}, [filePath]);
 
