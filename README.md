@@ -1,7 +1,31 @@
-# Tauri + React + Typescript
+# Velgit
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+建築図面PDFのバージョン管理ツール。  
+RevitやAutoCADから出力したPDFをGitで管理し、改訂間の差分を視覚的に確認できます。
 
-## Recommended IDE Setup
+## 機能
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+- PDF図面のバージョン管理（Gitベース）
+- コミット履歴のツリー表示
+- 改訂間のPDFビジュアルdiff
+- ブランチによる設計案の分岐・統合
+- NAS・共有フォルダのリポジトリに対応
+
+## 動作環境
+
+- Windows 11
+- Git のインストール不要
+
+## インストール
+
+[Releases](../../releases) から最新の `.msi` インストーラをダウンロードして実行してください。
+
+## 使い方
+
+1. 「リポジトリを開く」からプロジェクトフォルダを選択
+2. コミット履歴からバージョンを選択
+3. PDFの差分を右ペインで確認
+
+## 開発者向け
+
+開発環境のセットアップは [CLAUDE.md](./CLAUDE.md) を参照してください。
