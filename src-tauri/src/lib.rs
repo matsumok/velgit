@@ -400,6 +400,26 @@ fn get_pdf_page_count(
 }
 
 #[tauri::command]
+fn get_pdf_page_count_at_commit(
+    pdfium_handle: tauri::State<PdfiumHandle>,
+    repo_path: String,
+    commit_sha: String,
+    file_path: String,
+) -> Result<u32, String> {
+    let mut guard = pdfium_handle.0.lock().map_err(|e| e.to_string())?;
+    if guard.is_none() {
+        *guard = Some(init_pdfium()?);
+    }
+    let pdfium = guard.as_ref().unwrap();
+    let repo = Repository::open(&repo_path).map_err(|e| e.message().to_string())?;
+    let bytes = blob_bytes(&repo, &commit_sha, &file_path)?;
+    let doc = pdfium
+        .load_pdf_from_byte_slice(&bytes, None)
+        .map_err(|e| e.to_string())?;
+    Ok(doc.pages().len() as u32)
+}
+
+#[tauri::command]
 fn render_pdf_page(
     pdfium_handle: tauri::State<PdfiumHandle>,
     path: String,
@@ -496,6 +516,7 @@ pub fn run() {
             stage_file,
             create_commit,
             get_pdf_page_count,
+            get_pdf_page_count_at_commit,
             render_pdf_page,
             render_pdf_page_at_commit,
             diff_pdf_pages_at_commits,

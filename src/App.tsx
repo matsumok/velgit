@@ -4,6 +4,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { useCallback, useEffect, useState } from "react";
 import type { CommitInfo } from "./components/CommitTree";
 import { CommitTree } from "./components/CommitTree";
+import { DiffViewer } from "./components/DiffViewer";
 import type { FileEntry } from "./components/FileExplorer";
 import { FileExplorer } from "./components/FileExplorer";
 import { PdfViewer } from "./components/PdfViewer";
@@ -32,6 +33,7 @@ function App() {
 	const [selectedFile, setSelectedFile] = useState<string | null>(null);
 	const [selectedCommit, setSelectedCommit] = useState<string | null>(null);
 	const [isDragging, setIsDragging] = useState(false);
+	const [viewMode, setViewMode] = useState<"preview" | "diff">("preview");
 
 	const loadRepo = useCallback(async (path: string) => {
 		const info = await invoke<RepoInfo>("open_repo", { path });
@@ -101,6 +103,7 @@ function App() {
 	}, [repoPath]);
 
 	const selectedCommitInfo = commits.find((c) => c.hash === selectedCommit);
+	const parentSha = selectedCommitInfo?.parents[0] ?? null;
 
 	return (
 		<div className="dark h-screen flex flex-col bg-background text-foreground font-mono overflow-hidden">
@@ -178,19 +181,50 @@ function App() {
 
 					<ResizableHandle withHandle />
 
-					{/* Right: PDF preview */}
+					{/* Right: PDF preview / diff */}
 					<ResizablePanel defaultSize={580} minSize={200}>
 						<div className="h-full flex flex-col">
-							<div className="px-3 h-8 flex items-center text-xs text-muted-foreground border-b border-border shrink-0">
-								プレビュー
+							<div className="flex items-center border-b border-border shrink-0 h-8">
+								<button
+									type="button"
+									onClick={() => setViewMode("preview")}
+									className={`px-3 h-full text-xs transition-colors ${
+										viewMode === "preview"
+											? "text-foreground border-b-2 border-primary"
+											: "text-muted-foreground hover:text-foreground"
+									}`}
+								>
+									プレビュー
+								</button>
+								<button
+									type="button"
+									onClick={() => setViewMode("diff")}
+									disabled={!parentSha || !selectedFile}
+									className={`px-3 h-full text-xs transition-colors disabled:opacity-30 ${
+										viewMode === "diff"
+											? "text-foreground border-b-2 border-primary"
+											: "text-muted-foreground hover:text-foreground"
+									}`}
+								>
+									差分
+								</button>
 							</div>
 							<div className="flex-1 min-h-0 overflow-hidden">
 								{selectedFile && repoPath ? (
-									<PdfViewer
-										repoPath={repoPath}
-										filePath={selectedFile}
-										commitSha={selectedCommit ?? undefined}
-									/>
+									viewMode === "diff" && parentSha && selectedCommit ? (
+										<DiffViewer
+											repoPath={repoPath}
+											commitA={parentSha}
+											commitB={selectedCommit}
+											filePath={selectedFile}
+										/>
+									) : (
+										<PdfViewer
+											repoPath={repoPath}
+											filePath={selectedFile}
+											commitSha={selectedCommit ?? undefined}
+										/>
+									)
 								) : (
 									<div className="flex items-center justify-center h-full text-muted-foreground text-sm">
 										ファイルを選択してください
