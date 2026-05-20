@@ -12,8 +12,8 @@ export interface FileEntry {
 }
 
 interface FileExplorerProps {
-	files: FileEntry[];           // files changed in selected commit
-	workingFiles: FileEntry[];    // working tree status (live changes)
+	files: FileEntry[]; // files changed in selected commit
+	workingFiles: FileEntry[]; // working tree status (live changes)
 	isDragging: boolean;
 	selectedFile: string | null;
 	onFileSelect: (relativePath: string) => void;
@@ -63,7 +63,10 @@ function WorkingFileRow({
 		const trimmed = draft.trim();
 		if (trimmed && trimmed !== file.name && onRenameSubmit) {
 			const dir = file.relative_path.includes("/")
-				? file.relative_path.substring(0, file.relative_path.lastIndexOf("/") + 1)
+				? file.relative_path.substring(
+						0,
+						file.relative_path.lastIndexOf("/") + 1,
+					)
 				: "";
 			onRenameSubmit(dir + trimmed);
 		}
@@ -76,12 +79,16 @@ function WorkingFileRow({
 				<FilePdf size={15} className="shrink-0 text-red-400" weight="fill" />
 				<input
 					ref={inputRef}
+					// biome-ignore lint/a11y/noAutofocus: リネーム入力欄は意図的にフォーカス
 					autoFocus
 					value={draft}
 					onChange={(e) => setDraft(e.target.value)}
 					onKeyDown={(e) => {
 						if (e.key === "Enter") commitRename();
-						if (e.key === "Escape") { setRenaming(false); setDraft(file.name); }
+						if (e.key === "Escape") {
+							setRenaming(false);
+							setDraft(file.name);
+						}
 					}}
 					onBlur={commitRename}
 					className="flex-1 text-sm bg-background border border-primary rounded px-1 py-1 outline-none"
@@ -114,20 +121,28 @@ function WorkingFileRow({
 				</Badge>
 			)}
 			<div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-				{onStage && (file.status === "untracked" || file.status === "modified") && (
-					<button
-						type="button"
-						onClick={(e) => { e.stopPropagation(); onStage(); }}
-						className="p-1 hover:text-primary text-muted-foreground rounded"
-						title="ステージ"
-					>
-						<Plus size={12} />
-					</button>
-				)}
+				{onStage &&
+					(file.status === "untracked" || file.status === "modified") && (
+						<button
+							type="button"
+							onClick={(e) => {
+								e.stopPropagation();
+								onStage();
+							}}
+							className="p-1 hover:text-primary text-muted-foreground rounded"
+							title="ステージ"
+						>
+							<Plus size={12} />
+						</button>
+					)}
 				{onRenameSubmit && (
 					<button
 						type="button"
-						onClick={(e) => { e.stopPropagation(); setRenaming(true); setDraft(file.name); }}
+						onClick={(e) => {
+							e.stopPropagation();
+							setRenaming(true);
+							setDraft(file.name);
+						}}
 						className="p-1 hover:text-primary text-muted-foreground rounded"
 						title="リネーム"
 					>
@@ -187,7 +202,9 @@ export function FileExplorer({
 									file={file}
 									isSelected={selectedFile === file.relative_path}
 									onClick={() => onFileSelect(file.relative_path)}
-									onStage={onStage ? () => onStage(file.relative_path) : undefined}
+									onStage={
+										onStage ? () => onStage(file.relative_path) : undefined
+									}
 									onRenameSubmit={
 										onRename
 											? (newPath) => onRename(file.relative_path, newPath)

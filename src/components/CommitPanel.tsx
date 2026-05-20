@@ -32,9 +32,7 @@ export function CommitPanel({ repoPath, stagedCount, onSuccess }: Props) {
 
 	return (
 		<div className="border-t border-border shrink-0 p-2 flex flex-col gap-2">
-			{error && (
-				<p className="text-xs text-destructive px-1">{error}</p>
-			)}
+			{error && <p className="text-xs text-destructive px-1">{error}</p>}
 			<textarea
 				value={message}
 				onChange={(e) => setMessage(e.target.value)}

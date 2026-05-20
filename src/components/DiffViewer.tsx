@@ -48,7 +48,7 @@ export function DiffViewer({ repoPath, commitA, commitB, filePath }: Props) {
 		return () => {
 			cancelled = true;
 		};
-	}, [repoPath, commitA, commitB, filePath]);
+	}, [repoPath, commitB, filePath]);
 
 	// diff 取得
 	useEffect(() => {
@@ -128,16 +128,14 @@ export function DiffViewer({ repoPath, commitA, commitB, filePath }: Props) {
 				{changePercent !== null && (
 					<span
 						className={`ml-auto font-mono ${
-							diff!.change_ratio > 0.01
+							diff?.change_ratio > 0.01
 								? "text-red-400"
-								: diff!.change_ratio > 0
+								: diff?.change_ratio > 0
 									? "text-yellow-400"
 									: "text-green-400"
 						}`}
 					>
-						{diff!.change_ratio === 0
-							? "変化なし"
-							: `${changePercent}% 変化`}
+						{diff?.change_ratio === 0 ? "変化なし" : `${changePercent}% 変化`}
 					</span>
 				)}
 			</div>

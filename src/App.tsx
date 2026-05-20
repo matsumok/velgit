@@ -1,22 +1,22 @@
+import { FolderOpen } from "@phosphor-icons/react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useCallback, useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+	ResizableHandle,
+	ResizablePanel,
+	ResizablePanelGroup,
+} from "@/components/ui/resizable";
+import { BranchSheet } from "./components/BranchSheet";
+import { CommitPanel } from "./components/CommitPanel";
 import type { CommitInfo } from "./components/CommitTree";
 import { CommitTree } from "./components/CommitTree";
 import { DiffViewer } from "./components/DiffViewer";
 import type { FileEntry } from "./components/FileExplorer";
 import { FileExplorer } from "./components/FileExplorer";
 import { PdfViewer } from "./components/PdfViewer";
-import { BranchSheet } from "./components/BranchSheet";
-import { CommitPanel } from "./components/CommitPanel";
-import {
-	ResizableHandle,
-	ResizablePanel,
-	ResizablePanelGroup,
-} from "@/components/ui/resizable";
-import { Button } from "@/components/ui/button";
-import { FolderOpen } from "@phosphor-icons/react";
 
 interface RepoInfo {
 	name: string;
@@ -46,9 +46,12 @@ function App() {
 
 	const refreshWorkingTree = useCallback(async (path: string) => {
 		try {
-			const entries = await invoke<WorkingFileEntry[]>("get_working_tree_status", {
-				repoPath: path,
-			});
+			const entries = await invoke<WorkingFileEntry[]>(
+				"get_working_tree_status",
+				{
+					repoPath: path,
+				},
+			);
 			setWorkingFiles(entries as FileEntry[]);
 		} catch {
 			setWorkingFiles([]);
@@ -133,10 +136,17 @@ function App() {
 		}
 	};
 
-	const handleRename = async (oldRelativePath: string, newRelativePath: string) => {
+	const handleRename = async (
+		oldRelativePath: string,
+		newRelativePath: string,
+	) => {
 		if (!repoPath) return;
 		try {
-			await invoke("rename_file", { repoPath, oldRelativePath, newRelativePath });
+			await invoke("rename_file", {
+				repoPath,
+				oldRelativePath,
+				newRelativePath,
+			});
 			await refreshWorkingTree(repoPath);
 			if (selectedFile === oldRelativePath) {
 				setSelectedFile(newRelativePath);
@@ -175,7 +185,9 @@ function App() {
 		]);
 
 		return () => {
-			unlistens.then((fns) => fns.forEach((fn) => fn()));
+			unlistens.then((fns) => {
+				for (const fn of fns) fn();
+			});
 		};
 	}, [repoPath, refreshWorkingTree]);
 
@@ -184,7 +196,8 @@ function App() {
 
 	// Count staged files (added = INDEX_NEW, modified includes INDEX_MODIFIED)
 	const stagedCount = workingFiles.filter(
-		(f) => f.status === "added" || f.status === "modified" || f.status === "deleted",
+		(f) =>
+			f.status === "added" || f.status === "modified" || f.status === "deleted",
 	).length;
 
 	const previewCommitSha = selectedFileIsWorking
@@ -204,10 +217,10 @@ function App() {
 					<FolderOpen size={14} />
 					{repoInfo ? repoInfo.name : "リポジトリを開く"}
 				</Button>
-				{repoInfo && (
+				{repoPath && repoInfo && (
 					<>
 						<BranchSheet
-							repoPath={repoPath!}
+							repoPath={repoPath}
 							currentBranch={repoInfo.branch}
 							onBranchChange={refreshRepo}
 						/>
@@ -219,7 +232,10 @@ function App() {
 			</header>
 
 			{repoInfo ? (
-				<ResizablePanelGroup orientation="horizontal" className="flex-1 min-h-0">
+				<ResizablePanelGroup
+					orientation="horizontal"
+					className="flex-1 min-h-0"
+				>
 					{/* Left: compact commit tree */}
 					<ResizablePanel defaultSize={180} minSize={100}>
 						<div className="h-full flex flex-col">
@@ -272,7 +288,7 @@ function App() {
 								/>
 							</div>
 							<CommitPanel
-								repoPath={repoPath!}
+								repoPath={repoPath ?? ""}
 								stagedCount={stagedCount}
 								onSuccess={refreshRepo}
 							/>
@@ -299,7 +315,9 @@ function App() {
 								<button
 									type="button"
 									onClick={() => setViewMode("diff")}
-									disabled={!parentSha || !selectedFile || selectedFileIsWorking}
+									disabled={
+										!parentSha || !selectedFile || selectedFileIsWorking
+									}
 									className={`px-3 h-full text-xs transition-colors disabled:opacity-30 ${
 										viewMode === "diff"
 											? "text-foreground border-b-2 border-primary"

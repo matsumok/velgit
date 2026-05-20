@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 
 interface Props {
 	repoPath: string;
-	filePath: string;   // relative path within repo (e.g. "A-101.pdf")
+	filePath: string; // relative path within repo (e.g. "A-101.pdf")
 	commitSha?: string; // if set, render at this commit
 }
 

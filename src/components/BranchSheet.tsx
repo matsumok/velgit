@@ -1,5 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useRef, useState } from "react";
 import {
 	ArrowRight,
 	Check,
@@ -7,6 +5,8 @@ import {
 	Plus,
 	Trash,
 } from "@phosphor-icons/react";
+import { invoke } from "@tauri-apps/api/core";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -24,7 +24,11 @@ interface Props {
 	onBranchChange: () => void;
 }
 
-export function BranchSheet({ repoPath, currentBranch, onBranchChange }: Props) {
+export function BranchSheet({
+	repoPath,
+	currentBranch,
+	onBranchChange,
+}: Props) {
 	const [open, setOpen] = useState(false);
 	const [branches, setBranches] = useState<BranchInfo[]>([]);
 	const [newName, setNewName] = useState("");
@@ -33,18 +37,18 @@ export function BranchSheet({ repoPath, currentBranch, onBranchChange }: Props) 
 	const [busy, setBusy] = useState(false);
 	const ref = useRef<HTMLDivElement>(null);
 
-	const load = async () => {
+	const load = useCallback(async () => {
 		try {
 			const list = await invoke<BranchInfo[]>("list_branches", { repoPath });
 			setBranches(list);
 		} catch (e) {
 			setError(String(e));
 		}
-	};
+	}, [repoPath]);
 
 	useEffect(() => {
 		if (open) load();
-	}, [open, repoPath]);
+	}, [open, load]);
 
 	useEffect(() => {
 		if (!open) return;
@@ -102,7 +106,10 @@ export function BranchSheet({ repoPath, currentBranch, onBranchChange }: Props) 
 		<div className="relative" ref={ref}>
 			<button
 				type="button"
-				onClick={() => { setOpen((v) => !v); setError(null); }}
+				onClick={() => {
+					setOpen((v) => !v);
+					setError(null);
+				}}
 				className="flex items-center gap-1 text-xs h-5 px-2 rounded bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors font-mono"
 			>
 				<span className="text-xs">⎇</span>
@@ -115,7 +122,10 @@ export function BranchSheet({ repoPath, currentBranch, onBranchChange }: Props) 
 						<span>ブランチ</span>
 						<button
 							type="button"
-							onClick={() => { setCreating((v) => !v); setNewName(""); }}
+							onClick={() => {
+								setCreating((v) => !v);
+								setNewName("");
+							}}
 							className="p-1 hover:text-foreground transition-colors rounded"
 							title="新規ブランチ"
 						>
@@ -126,13 +136,17 @@ export function BranchSheet({ repoPath, currentBranch, onBranchChange }: Props) 
 					{creating && (
 						<div className="flex gap-1 p-2 border-b border-border">
 							<input
+								// biome-ignore lint/a11y/noAutofocus: ブランチ作成入力欄は意図的にフォーカス
 								autoFocus
 								type="text"
 								value={newName}
 								onChange={(e) => setNewName(e.target.value)}
 								onKeyDown={(e) => {
 									if (e.key === "Enter") handleCreate();
-									if (e.key === "Escape") { setCreating(false); setNewName(""); }
+									if (e.key === "Escape") {
+										setCreating(false);
+										setNewName("");
+									}
 								}}
 								placeholder="新しいブランチ名"
 								className="flex-1 bg-background border border-border rounded px-2 py-1 text-xs outline-none focus:border-primary"

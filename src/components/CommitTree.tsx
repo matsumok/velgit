@@ -1,13 +1,13 @@
 import { useMemo } from "react";
-import { cn } from "@/lib/utils";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 export interface CommitAuthor {
 	name: string;
@@ -46,7 +46,7 @@ function getLaneColor(lane: number): string {
 
 function computeGraph(commits: CommitInfo[]): GraphRow[] {
 	const rows: GraphRow[] = [];
-	let activeLanes: (string | null)[] = [];
+	const activeLanes: (string | null)[] = [];
 
 	for (const commit of commits) {
 		const activeBefore = activeLanes
@@ -117,19 +117,13 @@ function formatFullDateTime(timestamp: number): string {
 const LANE_W = 14;
 const ROW_H = 32;
 
-function GraphCell({
-	row,
-	maxLanes,
-}: {
-	row: GraphRow;
-	maxLanes: number;
-}) {
+function GraphCell({ row, maxLanes }: { row: GraphRow; maxLanes: number }) {
 	const width = maxLanes * LANE_W + 4;
 	const cx = row.lane * LANE_W + LANE_W / 2;
 	const cy = ROW_H / 2;
 
 	return (
-		<svg width={width} height={ROW_H} className="shrink-0">
+		<svg width={width} height={ROW_H} className="shrink-0" aria-hidden="true">
 			{row.activeBefore.map((i) => (
 				<line
 					key={`t${i}`}

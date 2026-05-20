@@ -250,6 +250,7 @@ commitメッセージ例:
 - `src/components/ui/` 配下のファイルは **shadcn が生成したコンポーネント**であり、原則として手を加えない
 - バグ修正・スタイル変更・リファクタリングの対象にしない
 - アップデートが必要な場合は shadcn CLI で再生成する
+- **biome のフォーマット・lint・import sort の対象外**（`biome.json` の `files.ignore` で除外済み）
 
 ---
 
