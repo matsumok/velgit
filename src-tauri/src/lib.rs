@@ -1,6 +1,7 @@
 use git2::Repository;
 use pdfium_render::prelude::*;
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 #[derive(serde::Serialize)]
 pub struct RepoInfo {
@@ -110,9 +111,17 @@ fn get_commits(path: String, max_count: usize) -> Result<Vec<CommitInfo>, String
 }
 
 fn load_pdfium() -> Result<Pdfium, String> {
-    let bindings = Pdfium::bind_to_library(Pdfium::pdfium_platform_library_name_at_path("./"))
-        .or_else(|_| Pdfium::bind_to_system_library())
-        .map_err(|e| format!("pdfium.dll が見つかりません: {e}"))?;
+    let exe_dir = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(PathBuf::from))
+        .unwrap_or_default();
+
+    // exe と同じディレクトリ（dev: target/debug/, prod: インストール先）を優先し、
+    // 見つからなければシステムの DLL 検索パスにフォールバック
+    let bindings =
+        Pdfium::bind_to_library(Pdfium::pdfium_platform_library_name_at_path(&exe_dir))
+            .or_else(|_| Pdfium::bind_to_system_library())
+            .map_err(|e| format!("pdfium.dll が見つかりません: {e}"))?;
     Ok(Pdfium::new(bindings))
 }
 
