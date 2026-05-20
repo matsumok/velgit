@@ -8,14 +8,15 @@ import { DiffViewer } from "./components/DiffViewer";
 import type { FileEntry } from "./components/FileExplorer";
 import { FileExplorer } from "./components/FileExplorer";
 import { PdfViewer } from "./components/PdfViewer";
+import { BranchSheet } from "./components/BranchSheet";
+import { CommitPanel } from "./components/CommitPanel";
 import {
 	ResizableHandle,
 	ResizablePanel,
 	ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FolderOpen, GitBranch } from "@phosphor-icons/react";
+import { FolderOpen } from "@phosphor-icons/react";
 
 interface RepoInfo {
 	name: string;
@@ -25,29 +26,65 @@ interface RepoInfo {
 	head_message: string;
 }
 
+interface WorkingFileEntry {
+	name: string;
+	relative_path: string;
+	status: string;
+}
+
 function App() {
 	const [repoPath, setRepoPath] = useState<string | null>(null);
 	const [repoInfo, setRepoInfo] = useState<RepoInfo | null>(null);
 	const [commits, setCommits] = useState<CommitInfo[]>([]);
 	const [files, setFiles] = useState<FileEntry[]>([]);
+	const [workingFiles, setWorkingFiles] = useState<FileEntry[]>([]);
 	const [selectedFile, setSelectedFile] = useState<string | null>(null);
+	const [selectedFileIsWorking, setSelectedFileIsWorking] = useState(false);
 	const [selectedCommit, setSelectedCommit] = useState<string | null>(null);
 	const [isDragging, setIsDragging] = useState(false);
 	const [viewMode, setViewMode] = useState<"preview" | "diff">("preview");
 
-	const loadRepo = useCallback(async (path: string) => {
-		const info = await invoke<RepoInfo>("open_repo", { path });
-		setRepoInfo(info);
-		setRepoPath(path);
+	const refreshWorkingTree = useCallback(async (path: string) => {
+		try {
+			const entries = await invoke<WorkingFileEntry[]>("get_working_tree_status", {
+				repoPath: path,
+			});
+			setWorkingFiles(entries as FileEntry[]);
+		} catch {
+			setWorkingFiles([]);
+		}
+	}, []);
 
+	const loadRepo = useCallback(
+		async (path: string) => {
+			const info = await invoke<RepoInfo>("open_repo", { path });
+			setRepoInfo(info);
+			setRepoPath(path);
+
+			const log = await invoke<CommitInfo[]>("get_commits", {
+				path,
+				maxCount: 200,
+			});
+			setCommits(log);
+			if (log.length > 0) setSelectedCommit(log[0].hash);
+
+			await refreshWorkingTree(path);
+		},
+		[refreshWorkingTree],
+	);
+
+	const refreshRepo = useCallback(async () => {
+		if (!repoPath) return;
+		const info = await invoke<RepoInfo>("open_repo", { path: repoPath });
+		setRepoInfo(info);
 		const log = await invoke<CommitInfo[]>("get_commits", {
-			path,
+			path: repoPath,
 			maxCount: 200,
 		});
 		setCommits(log);
-		// Auto-select latest commit
 		if (log.length > 0) setSelectedCommit(log[0].hash);
-	}, []);
+		await refreshWorkingTree(repoPath);
+	}, [repoPath, refreshWorkingTree]);
 
 	// Load files changed in the selected commit
 	useEffect(() => {
@@ -68,6 +105,7 @@ function App() {
 				}));
 				setFiles(entries);
 				setSelectedFile(null);
+				setSelectedFileIsWorking(false);
 			})
 			.catch(console.error);
 	}, [repoPath, selectedCommit]);
@@ -79,31 +117,79 @@ function App() {
 		}
 	};
 
+	const handleFileSelect = (relativePath: string, isWorking: boolean) => {
+		setSelectedFile(relativePath);
+		setSelectedFileIsWorking(isWorking);
+		setViewMode("preview");
+	};
+
+	const handleStage = async (relativePath: string) => {
+		if (!repoPath) return;
+		try {
+			await invoke("stage_file", { repoPath, relativePath });
+			await refreshWorkingTree(repoPath);
+		} catch (e) {
+			console.error(e);
+		}
+	};
+
+	const handleRename = async (oldRelativePath: string, newRelativePath: string) => {
+		if (!repoPath) return;
+		try {
+			await invoke("rename_file", { repoPath, oldRelativePath, newRelativePath });
+			await refreshWorkingTree(repoPath);
+			if (selectedFile === oldRelativePath) {
+				setSelectedFile(newRelativePath);
+			}
+		} catch (e) {
+			console.error(e);
+		}
+	};
+
 	// File drop from OS (Tauri v2 event API)
 	useEffect(() => {
 		type DropPayload = { paths?: string[] };
 		const unlistens = Promise.all([
 			listen("tauri://drag-enter", () => setIsDragging(true)),
 			listen("tauri://drag-leave", () => setIsDragging(false)),
-			listen<DropPayload>("tauri://drag-drop", (event) => {
+			listen<DropPayload>("tauri://drag-drop", async (event) => {
 				setIsDragging(false);
 				if (!repoPath) return;
 				const paths = event.payload.paths ?? [];
 				const pdfs = paths.filter((p) => p.toLowerCase().endsWith(".pdf"));
-				if (pdfs.length > 0) {
-					// TODO: copy PDFs to repo dir and stage
-					console.log("Dropped PDFs:", pdfs);
+				for (const pdf of pdfs) {
+					// Only stage if the file is already inside the repo
+					const normalized = pdf.replace(/\\/g, "/");
+					const repoNorm = repoPath.replace(/\\/g, "/");
+					if (normalized.startsWith(repoNorm)) {
+						const rel = normalized.slice(repoNorm.length).replace(/^\//, "");
+						try {
+							await invoke("stage_file", { repoPath, relativePath: rel });
+						} catch {
+							// file may not be tracked yet; ignore
+						}
+					}
 				}
+				await refreshWorkingTree(repoPath);
 			}),
 		]);
 
 		return () => {
 			unlistens.then((fns) => fns.forEach((fn) => fn()));
 		};
-	}, [repoPath]);
+	}, [repoPath, refreshWorkingTree]);
 
 	const selectedCommitInfo = commits.find((c) => c.hash === selectedCommit);
 	const parentSha = selectedCommitInfo?.parents[0] ?? null;
+
+	// Count staged files (added = INDEX_NEW, modified includes INDEX_MODIFIED)
+	const stagedCount = workingFiles.filter(
+		(f) => f.status === "added" || f.status === "modified" || f.status === "deleted",
+	).length;
+
+	const previewCommitSha = selectedFileIsWorking
+		? undefined
+		: (selectedCommit ?? undefined);
 
 	return (
 		<div className="dark h-screen flex flex-col bg-background text-foreground font-mono overflow-hidden">
@@ -120,10 +206,11 @@ function App() {
 				</Button>
 				{repoInfo && (
 					<>
-						<Badge variant="secondary" className="gap-1 text-xs h-5 px-1.5">
-							<GitBranch size={11} />
-							{repoInfo.branch}
-						</Badge>
+						<BranchSheet
+							repoPath={repoPath!}
+							currentBranch={repoInfo.branch}
+							onBranchChange={refreshRepo}
+						/>
 						<span className="text-xs text-muted-foreground truncate hidden sm:block">
 							{repoInfo.head_message}
 						</span>
@@ -151,7 +238,7 @@ function App() {
 
 					<ResizableHandle withHandle />
 
-					{/* Center: files changed in selected commit */}
+					{/* Center: files changed in selected commit + working tree */}
 					<ResizablePanel defaultSize={580} minSize={150}>
 						<div className="h-full flex flex-col">
 							<div className="px-3 h-8 flex items-center gap-2 text-xs text-muted-foreground border-b border-border shrink-0 overflow-hidden">
@@ -171,11 +258,24 @@ function App() {
 							<div className="flex-1 min-h-0">
 								<FileExplorer
 									files={files}
+									workingFiles={workingFiles}
 									isDragging={isDragging}
 									selectedFile={selectedFile}
-									onFileSelect={setSelectedFile}
+									onFileSelect={(path) => {
+										const isWorking = workingFiles.some(
+											(f) => f.relative_path === path,
+										);
+										handleFileSelect(path, isWorking);
+									}}
+									onStage={handleStage}
+									onRename={handleRename}
 								/>
 							</div>
+							<CommitPanel
+								repoPath={repoPath!}
+								stagedCount={stagedCount}
+								onSuccess={refreshRepo}
+							/>
 						</div>
 					</ResizablePanel>
 
@@ -199,7 +299,7 @@ function App() {
 								<button
 									type="button"
 									onClick={() => setViewMode("diff")}
-									disabled={!parentSha || !selectedFile}
+									disabled={!parentSha || !selectedFile || selectedFileIsWorking}
 									className={`px-3 h-full text-xs transition-colors disabled:opacity-30 ${
 										viewMode === "diff"
 											? "text-foreground border-b-2 border-primary"
@@ -211,7 +311,10 @@ function App() {
 							</div>
 							<div className="flex-1 min-h-0 overflow-hidden">
 								{selectedFile && repoPath ? (
-									viewMode === "diff" && parentSha && selectedCommit ? (
+									viewMode === "diff" &&
+									parentSha &&
+									selectedCommit &&
+									!selectedFileIsWorking ? (
 										<DiffViewer
 											repoPath={repoPath}
 											commitA={parentSha}
@@ -222,7 +325,7 @@ function App() {
 										<PdfViewer
 											repoPath={repoPath}
 											filePath={selectedFile}
-											commitSha={selectedCommit ?? undefined}
+											commitSha={previewCommitSha}
 										/>
 									)
 								) : (

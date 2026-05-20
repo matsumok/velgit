@@ -16,7 +16,7 @@ export function PdfViewer({ repoPath, filePath, commitSha }: Props) {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 
-	// Page count — always from working tree as approximation
+	// Page count — commit-aware when commitSha is set
 	useEffect(() => {
 		let cancelled = false;
 		setImgSrc(null);
@@ -25,7 +25,15 @@ export function PdfViewer({ repoPath, filePath, commitSha }: Props) {
 		setError(null);
 		setLoading(true);
 
-		invoke<number>("get_pdf_page_count", { path: absolutePath })
+		const countCall = commitSha
+			? invoke<number>("get_pdf_page_count_at_commit", {
+					repoPath,
+					commitSha,
+					filePath,
+				})
+			: invoke<number>("get_pdf_page_count", { path: absolutePath });
+
+		countCall
 			.then((count) => {
 				if (!cancelled) {
 					setNumPages(count);
@@ -39,7 +47,7 @@ export function PdfViewer({ repoPath, filePath, commitSha }: Props) {
 		return () => {
 			cancelled = true;
 		};
-	}, [absolutePath]);
+	}, [absolutePath, repoPath, filePath, commitSha]);
 
 	// Render page — commit-aware
 	useEffect(() => {
