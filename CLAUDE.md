@@ -271,6 +271,7 @@ commitメッセージ例:
 - ~~react-gitgraphによるコミットツリー表示~~ ✅ 完了
 - ~~pdfium-renderによるPDFプレビュー表示（PDF.jsから移行）~~ ✅ 完了（2026-05-20）
 - ~~pdfium-renderによるdiff用PDF画像化~~ ✅ 完了（2026-05-20）
+- ~~git操作（stage / commit）~~ ✅ 完了（2026-05-21）
 - pixelmatchによる基本的なdiff表示（フロント側 UI 待ち）
 
 ### Phase 2

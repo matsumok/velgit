@@ -37,6 +37,14 @@ pub struct CommitInfo {
     pub refs: Vec<String>,
 }
 
+// フロントの FileEntry と同一構造
+#[derive(serde::Serialize)]
+pub struct WorkingFileEntry {
+    pub name: String,
+    pub relative_path: String,
+    pub status: String, // "modified" | "added" | "deleted" | "untracked"
+}
+
 #[derive(serde::Serialize)]
 pub struct PageDiffResult {
     pub diff_png_b64: String, // base64 encoded PNG of diff overlay
@@ -178,6 +186,81 @@ fn get_changed_files(repo_path: String, commit_sha: String) -> Result<Vec<String
     .map_err(|e| e.to_string())?;
 
     Ok(paths)
+}
+
+/// ワーキングツリーの変更ファイル一覧（PDF のみ）を返す。
+/// ステージ済み・未ステージ両方を含む。
+#[tauri::command]
+fn get_working_tree_status(repo_path: String) -> Result<Vec<WorkingFileEntry>, String> {
+    let repo = Repository::open(&repo_path).map_err(|e| e.message().to_string())?;
+    let statuses = repo.statuses(None).map_err(|e| e.to_string())?;
+
+    let mut entries = Vec::new();
+    for entry in statuses.iter() {
+        let path = match entry.path() {
+            Ok(p) => p.to_string(),
+            Err(_) => continue,
+        };
+        if !path.to_lowercase().ends_with(".pdf") {
+            continue;
+        }
+
+        let s = entry.status();
+        let status = if s.contains(git2::Status::WT_NEW) || s.contains(git2::Status::INDEX_NEW) {
+            if s.contains(git2::Status::INDEX_NEW) { "added" } else { "untracked" }
+        } else if s.contains(git2::Status::WT_DELETED) || s.contains(git2::Status::INDEX_DELETED) {
+            "deleted"
+        } else if s.intersects(
+            git2::Status::WT_MODIFIED
+                | git2::Status::INDEX_MODIFIED
+                | git2::Status::WT_RENAMED
+                | git2::Status::INDEX_RENAMED,
+        ) {
+            "modified"
+        } else {
+            continue;
+        };
+
+        let name = path.split('/').last().unwrap_or(&path).to_string();
+        entries.push(WorkingFileEntry { name, relative_path: path, status: status.to_string() });
+    }
+
+    Ok(entries)
+}
+
+/// 指定ファイルをインデックスに追加する（git add）。
+#[tauri::command]
+fn stage_file(repo_path: String, relative_path: String) -> Result<(), String> {
+    let repo = Repository::open(&repo_path).map_err(|e| e.message().to_string())?;
+    let mut index = repo.index().map_err(|e| e.to_string())?;
+    index
+        .add_path(std::path::Path::new(&relative_path))
+        .map_err(|e| e.to_string())?;
+    index.write().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// ステージ済みの変更をコミットする。署名は git config から取得する。
+/// 戻り値は新しいコミットの short SHA。
+#[tauri::command]
+fn create_commit(repo_path: String, message: String) -> Result<String, String> {
+    let repo = Repository::open(&repo_path).map_err(|e| e.message().to_string())?;
+    let sig = repo.signature().map_err(|e| e.to_string())?;
+    let mut index = repo.index().map_err(|e| e.to_string())?;
+    let tree_id = index.write_tree().map_err(|e| e.to_string())?;
+    let tree = repo.find_tree(tree_id).map_err(|e| e.to_string())?;
+
+    let parents: Vec<git2::Commit> = match repo.head() {
+        Ok(head) => vec![head.peel_to_commit().map_err(|e| e.to_string())?],
+        Err(_) => vec![], // 初回コミット
+    };
+    let parent_refs: Vec<&git2::Commit> = parents.iter().collect();
+
+    let oid = repo
+        .commit(Some("HEAD"), &sig, &sig, &message, &tree, &parent_refs)
+        .map_err(|e| e.to_string())?;
+
+    Ok(oid.to_string()[..7].to_string())
 }
 
 // ── PDF ヘルパー ────────────────────────────────────────────────
@@ -409,6 +492,9 @@ pub fn run() {
             open_repo,
             get_commits,
             get_changed_files,
+            get_working_tree_status,
+            stage_file,
+            create_commit,
             get_pdf_page_count,
             render_pdf_page,
             render_pdf_page_at_commit,
