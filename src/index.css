@@ -6,6 +6,7 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+	--text-2xs: 0.625rem;
 	--font-heading: var(--font-mono);
 	--font-mono: "JetBrains Mono Variable", monospace;
 	--color-sidebar-ring: var(--sidebar-ring);

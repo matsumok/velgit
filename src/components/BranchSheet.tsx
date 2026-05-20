@@ -103,20 +103,20 @@ export function BranchSheet({ repoPath, currentBranch, onBranchChange }: Props) 
 			<button
 				type="button"
 				onClick={() => { setOpen((v) => !v); setError(null); }}
-				className="flex items-center gap-1 text-xs h-5 px-1.5 rounded bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors font-mono"
+				className="flex items-center gap-1 text-xs h-5 px-2 rounded bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors font-mono"
 			>
-				<span className="text-[11px]">⎇</span>
+				<span className="text-xs">⎇</span>
 				{currentBranch}
 			</button>
 
 			{open && (
 				<div className="absolute top-full left-0 mt-1 z-50 w-72 bg-popover border border-border rounded-md shadow-xl overflow-hidden">
-					<div className="flex items-center justify-between px-3 py-1.5 text-xs text-muted-foreground border-b border-border">
+					<div className="flex items-center justify-between px-3 py-2 text-xs text-muted-foreground border-b border-border">
 						<span>ブランチ</span>
 						<button
 							type="button"
 							onClick={() => { setCreating((v) => !v); setNewName(""); }}
-							className="p-0.5 hover:text-foreground transition-colors rounded"
+							className="p-1 hover:text-foreground transition-colors rounded"
 							title="新規ブランチ"
 						>
 							<Plus size={12} />
@@ -139,7 +139,7 @@ export function BranchSheet({ repoPath, currentBranch, onBranchChange }: Props) 
 							/>
 							<Button
 								size="sm"
-								className="h-6 px-2 text-[11px]"
+								className="h-6 px-2 text-xs"
 								onClick={handleCreate}
 								disabled={busy || !newName.trim()}
 							>
@@ -149,7 +149,7 @@ export function BranchSheet({ repoPath, currentBranch, onBranchChange }: Props) 
 					)}
 
 					{error && (
-						<div className="px-3 py-1.5 text-[11px] text-destructive border-b border-border bg-destructive/5">
+						<div className="px-3 py-2 text-xs text-destructive border-b border-border bg-destructive/5">
 							{error}
 						</div>
 					)}
@@ -159,14 +159,14 @@ export function BranchSheet({ repoPath, currentBranch, onBranchChange }: Props) 
 							{branches.map((b) => (
 								<div
 									key={b.name}
-									className="flex items-center gap-2 px-3 py-1.5 hover:bg-accent group"
+									className="flex items-center gap-2 px-3 py-2 hover:bg-accent group"
 								>
 									<div className="flex-1 min-w-0">
-										<div className="flex items-center gap-1.5">
+										<div className="flex items-center gap-2">
 											{b.is_head ? (
 												<Check size={10} className="text-primary shrink-0" />
 											) : (
-												<span className="w-[10px] shrink-0" />
+												<span className="w-3 shrink-0" />
 											)}
 											<span
 												className={`text-xs truncate ${
@@ -178,13 +178,13 @@ export function BranchSheet({ repoPath, currentBranch, onBranchChange }: Props) 
 												{b.name}
 											</span>
 										</div>
-										<p className="text-[10px] text-muted-foreground truncate pl-[18px]">
+										<p className="text-2xs text-muted-foreground truncate pl-5">
 											{b.tip_sha} · {b.tip_message}
 										</p>
 									</div>
 
 									{!b.is_head && (
-										<div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+										<div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
 											<button
 												type="button"
 												onClick={() => handleCheckout(b.name)}
@@ -218,7 +218,7 @@ export function BranchSheet({ repoPath, currentBranch, onBranchChange }: Props) 
 							))}
 
 							{branches.length === 0 && !error && (
-								<p className="text-[11px] text-muted-foreground text-center py-4">
+								<p className="text-xs text-muted-foreground text-center py-4">
 									読み込み中...
 								</p>
 							)}

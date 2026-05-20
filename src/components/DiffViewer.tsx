@@ -108,7 +108,7 @@ export function DiffViewer({ repoPath, commitA, commitB, filePath }: Props) {
 							type="button"
 							disabled={currentPage <= 0}
 							onClick={() => setCurrentPage((p) => p - 1)}
-							className="px-1.5 py-0.5 bg-muted rounded disabled:opacity-40 hover:bg-muted/70"
+							className="px-2 py-1 bg-muted rounded disabled:opacity-40 hover:bg-muted/70"
 						>
 							‹
 						</button>
@@ -119,7 +119,7 @@ export function DiffViewer({ repoPath, commitA, commitB, filePath }: Props) {
 							type="button"
 							disabled={currentPage >= numPages - 1}
 							onClick={() => setCurrentPage((p) => p + 1)}
-							className="px-1.5 py-0.5 bg-muted rounded disabled:opacity-40 hover:bg-muted/70"
+							className="px-2 py-1 bg-muted rounded disabled:opacity-40 hover:bg-muted/70"
 						>
 							›
 						</button>

@@ -199,7 +199,7 @@ function App() {
 					variant="ghost"
 					size="sm"
 					onClick={handleOpenRepo}
-					className="gap-1.5 h-7 px-2 text-xs"
+					className="gap-2 h-7 px-2 text-xs"
 				>
 					<FolderOpen size={14} />
 					{repoInfo ? repoInfo.name : "リポジトリを開く"}

@@ -72,7 +72,7 @@ function WorkingFileRow({
 
 	if (renaming) {
 		return (
-			<div className="flex items-center gap-2 px-3 py-1.5">
+			<div className="flex items-center gap-2 px-3 py-2">
 				<FilePdf size={15} className="shrink-0 text-red-400" weight="fill" />
 				<input
 					ref={inputRef}
@@ -84,7 +84,7 @@ function WorkingFileRow({
 						if (e.key === "Escape") { setRenaming(false); setDraft(file.name); }
 					}}
 					onBlur={commitRename}
-					className="flex-1 text-sm bg-background border border-primary rounded px-1 py-0.5 outline-none"
+					className="flex-1 text-sm bg-background border border-primary rounded px-1 py-1 outline-none"
 				/>
 			</div>
 		);
@@ -93,7 +93,7 @@ function WorkingFileRow({
 	return (
 		<div
 			className={cn(
-				"flex items-center gap-2 px-3 py-1.5 hover:bg-accent transition-colors group",
+				"flex items-center gap-2 px-3 py-2 hover:bg-accent transition-colors group",
 				isSelected && "bg-accent",
 			)}
 		>
@@ -108,17 +108,17 @@ function WorkingFileRow({
 			{badge && (
 				<Badge
 					variant="outline"
-					className={cn("text-[10px] px-1 py-0 h-4 shrink-0", badge.className)}
+					className={cn("text-2xs px-1 py-0 h-4 shrink-0", badge.className)}
 				>
 					{badge.label}
 				</Badge>
 			)}
-			<div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+			<div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
 				{onStage && (file.status === "untracked" || file.status === "modified") && (
 					<button
 						type="button"
 						onClick={(e) => { e.stopPropagation(); onStage(); }}
-						className="p-0.5 hover:text-primary text-muted-foreground rounded"
+						className="p-1 hover:text-primary text-muted-foreground rounded"
 						title="ステージ"
 					>
 						<Plus size={12} />
@@ -128,7 +128,7 @@ function WorkingFileRow({
 					<button
 						type="button"
 						onClick={(e) => { e.stopPropagation(); setRenaming(true); setDraft(file.name); }}
-						className="p-0.5 hover:text-primary text-muted-foreground rounded"
+						className="p-1 hover:text-primary text-muted-foreground rounded"
 						title="リネーム"
 					>
 						<PencilSimple size={12} />
@@ -152,7 +152,7 @@ function CommitFileRow({
 		<button
 			type="button"
 			className={cn(
-				"w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-accent transition-colors",
+				"w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-accent transition-colors",
 				isSelected && "bg-accent",
 			)}
 			onClick={onClick}

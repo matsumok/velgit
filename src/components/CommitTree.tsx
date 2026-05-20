@@ -199,7 +199,7 @@ export function CommitTree({
 						<Tooltip key={row.commit.hash}>
 							<TooltipTrigger
 								className={cn(
-									"w-full flex items-center gap-1.5 px-2 cursor-pointer hover:bg-accent transition-colors",
+									"w-full flex items-center gap-2 px-2 cursor-pointer hover:bg-accent transition-colors",
 									selectedHash === row.commit.hash && "bg-accent",
 								)}
 								style={{ height: ROW_H }}
@@ -211,19 +211,19 @@ export function CommitTree({
 										<Badge
 											key={ref}
 											variant="secondary"
-											className="text-[10px] px-1 h-4 shrink-0 max-w-24 truncate"
+											className="text-2xs px-1 h-4 shrink-0 max-w-24 truncate"
 										>
 											{ref}
 										</Badge>
 									))}
-									<span className="text-[10px] text-muted-foreground shrink-0 ml-auto pl-1 tabular-nums">
+									<span className="text-2xs text-muted-foreground shrink-0 ml-auto pl-1 tabular-nums">
 										{formatMonthDay(row.commit.timestamp)}
 									</span>
 								</div>
 							</TooltipTrigger>
 							<TooltipContent side="right" className="max-w-72">
 								<p className="font-medium">{row.commit.subject}</p>
-								<p className="opacity-60 mt-0.5">
+								<p className="opacity-60 mt-1">
 									{row.commit.author.name} · {row.commit.short_sha}
 								</p>
 								<p className="opacity-60 tabular-nums">

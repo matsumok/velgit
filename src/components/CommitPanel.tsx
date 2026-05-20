@@ -31,9 +31,9 @@ export function CommitPanel({ repoPath, stagedCount, onSuccess }: Props) {
 	};
 
 	return (
-		<div className="border-t border-border shrink-0 p-2 flex flex-col gap-1.5">
+		<div className="border-t border-border shrink-0 p-2 flex flex-col gap-2">
 			{error && (
-				<p className="text-[11px] text-destructive px-1">{error}</p>
+				<p className="text-xs text-destructive px-1">{error}</p>
 			)}
 			<textarea
 				value={message}
@@ -48,7 +48,7 @@ export function CommitPanel({ repoPath, stagedCount, onSuccess }: Props) {
 				}
 				disabled={stagedCount === 0}
 				rows={2}
-				className="w-full bg-background border border-border rounded px-2 py-1.5 text-xs resize-none outline-none focus:border-primary disabled:opacity-40 font-mono placeholder:font-sans"
+				className="w-full bg-background border border-border rounded px-2 py-2 text-xs resize-none outline-none focus:border-primary disabled:opacity-40 font-mono placeholder:font-sans"
 			/>
 			<Button
 				size="sm"

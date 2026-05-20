@@ -235,6 +235,22 @@ commitメッセージ例:
 | git merge | 設計案の統合 |
 | git mv | ファイル名変更 |
 
+### Tailwind クラス記述規約
+
+- **サイズ指定は Tailwind / shadcn のユーティリティクラスで統一する**
+  - `text-sm`, `text-xs`, `text-2xs`（カスタム: 0.625rem）など
+  - `px-[14px]` のような arbitrary value（`[]` ブラケット構文）は使わない
+- **数値は整数のみ**
+  - padding / margin / width / height / gap はすべて整数スケール（`p-2`, `gap-1`, `w-3` など）
+  - `py-1.5`, `gap-0.5`, `w-2.5` のような小数値は使わない
+- **shadcn の `src/components/ui/` 配下はこの規約の対象外**（生成コードのため変更しない）
+
+### shadcn コンポーネントの取り扱い
+
+- `src/components/ui/` 配下のファイルは **shadcn が生成したコンポーネント**であり、原則として手を加えない
+- バグ修正・スタイル変更・リファクタリングの対象にしない
+- アップデートが必要な場合は shadcn CLI で再生成する
+
 ---
 
 ## 技術的課題
