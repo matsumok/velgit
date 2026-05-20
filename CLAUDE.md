@@ -2,11 +2,11 @@
 
 ## プロジェクト概要
 
-建築図面PDF管理に特化したデスクトップアプリケーション。
-SourcetreeライクなGit GUIに、PDFの視覚的diff表示を統合する。
+建築の図面PDF管理に特化したデスクトップアプリケーション。
+Git GUIに、PDFの視覚的diff表示を統合する。
 
 ### ターゲット
-- 建築事務所の社内ツール
+- 建築設計事務所向けのツール
 - Windowsユーザー（ブラウザ・GUIのみ、CLIは不要）
 - RevitおよびAutoCADから出力されたPDFを対象
 
@@ -263,6 +263,57 @@ commitメッセージ例:
 
 ---
 
+## バックエンド API 一覧（フロント連携用）
+
+### Git 操作
+
+| コマンド | 引数 | 戻り値 | 説明 |
+|---------|-----|--------|------|
+| `open_repo` | `path: string` | `RepoInfo` | リポジトリを開く |
+| `get_commits` | `path, max_count` | `CommitInfo[]` | コミット履歴取得 |
+| `get_changed_files` | `repo_path, commit_sha` | `string[]` | コミットの変更ファイル一覧 |
+| `get_working_tree_status` | `repo_path` | `WorkingFileEntry[]` | ワーキングツリー状態 |
+| `stage_file` | `repo_path, relative_path` | `void` | ファイルをステージ |
+| `create_commit` | `repo_path, message` | `string` | コミット作成（short SHA返す） |
+| `list_branches` | `repo_path` | `BranchInfo[]` | ローカルブランチ一覧 |
+| `create_branch` | `repo_path, branch_name, from_sha?` | `void` | ブランチ作成 |
+| `checkout_branch` | `repo_path, branch_name` | `void` | ブランチ切り替え |
+| `delete_branch` | `repo_path, branch_name` | `void` | ブランチ削除 |
+| `merge_branch` | `repo_path, branch_name, message?` | `string` | マージ（FF/merge-commit/already-up-to-date） |
+| `rename_file` | `repo_path, old_relative_path, new_relative_path` | `void` | git mv |
+
+### PDF 操作
+
+| コマンド | 引数 | 戻り値 | 説明 |
+|---------|-----|--------|------|
+| `get_pdf_page_count` | `path` | `number` | ページ数（ファイルシステム） |
+| `get_pdf_page_count_at_commit` | `repo_path, commit_sha, file_path` | `number` | コミット時点のページ数 |
+| `render_pdf_page` | `path, page, scale` | `ArrayBuffer` | PNG バイナリ（ファイルシステム） |
+| `render_pdf_page_at_commit` | `repo_path, commit_sha, file_path, page, scale` | `ArrayBuffer` | PNG バイナリ（コミット時点） |
+| `diff_pdf_pages_at_commits` | `repo_path, commit_a, commit_b, file_path, page, scale` | `PageDiffResult` | diff オーバーレイ PNG（base64） |
+
+### 主要型定義
+
+```typescript
+interface BranchInfo {
+  name: string;
+  is_head: boolean;
+  upstream: string | null;
+  tip_sha: string;
+  tip_message: string;
+}
+
+interface RepoInfo {
+  name: string;
+  path: string;
+  branch: string;
+  head_sha: string;
+  head_message: string;
+}
+```
+
+---
+
 ## 開発ロードマップ
 
 ### Phase 1（MVP）
@@ -272,13 +323,15 @@ commitメッセージ例:
 - ~~pdfium-renderによるPDFプレビュー表示（PDF.jsから移行）~~ ✅ 完了（2026-05-20）
 - ~~pdfium-renderによるdiff用PDF画像化~~ ✅ 完了（2026-05-20）
 - ~~git操作（stage / commit）~~ ✅ 完了（2026-05-21）
-- pixelmatchによる基本的なdiff表示（フロント側 UI 待ち）
+- ~~diff表示（ピクセル比較・赤ハイライト・変化率）~~ ✅ 完了（2026-05-21）
 
 ### Phase 2
-- UNCパス対応の検証・修正
+- UNCパス対応の検証・修正（libgit2はUNCパスをネイティブサポート、要実機テスト）
 - 大判PDFのメモリ最適化
-- ブランチ・マージのGUI対応
-- git mvのGUI対応
+- ~~ブランチ操作バックエンド（list/create/checkout/delete/merge）~~ ✅ 完了（2026-05-21）
+- ~~git mv バックエンド（rename_file コマンド）~~ ✅ 完了（2026-05-21）
+- ブランチ操作のUI（BranchList パネル、チェックアウト・作成・削除ダイアログ）
+- git mv のUI（FileExplorer からリネームダイアログ）
 
 ### Phase 3
 - PDF diff精度改善
@@ -350,15 +403,3 @@ cargo tauri build
 - Tauriの`.msi`インストーラで配布
 - `pdfium.dll`を同梱
 - Git for Windowsは別途インストール不要（git2-rsはlibgit2を静的リンク）
-
-## MCP Settings
-
-```jsonc
-{
-  "mcpServers": {
-    "shadcn": {
-      "command": "npx",
-      "args": ["shadcn-mcp", "start"]
-    }
-  }
-}

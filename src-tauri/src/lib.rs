@@ -263,6 +263,209 @@ fn create_commit(repo_path: String, message: String) -> Result<String, String> {
     Ok(oid.to_string()[..7].to_string())
 }
 
+// ── ブランチ コマンド ────────────────────────────────────────────────
+
+#[derive(serde::Serialize)]
+pub struct BranchInfo {
+    pub name: String,
+    pub is_head: bool,
+    pub upstream: Option<String>,
+    pub tip_sha: String,
+    pub tip_message: String,
+}
+
+#[tauri::command]
+fn list_branches(repo_path: String) -> Result<Vec<BranchInfo>, String> {
+    let repo = Repository::open(&repo_path).map_err(|e| e.message().to_string())?;
+    let head_shorthand = repo.head().ok()
+        .and_then(|h| h.shorthand().ok().map(|s| s.to_string()))
+        .unwrap_or_default();
+
+    let branches = repo
+        .branches(Some(git2::BranchType::Local))
+        .map_err(|e| e.to_string())?;
+    let mut result = Vec::new();
+
+    for branch_entry in branches {
+        let (branch, _) = branch_entry.map_err(|e| e.to_string())?;
+        let name = branch.name().map_err(|e| e.to_string())?.unwrap_or("").to_string();
+        if name.is_empty() {
+            continue;
+        }
+        let is_head = name == head_shorthand;
+        let upstream = branch
+            .upstream()
+            .ok()
+            .and_then(|u| u.name().ok().flatten().map(|s| s.to_string()));
+        let commit = branch.get().peel_to_commit().map_err(|e| e.to_string())?;
+        let tip_sha = commit.id().to_string()[..7].to_string();
+        let tip_message = commit
+            .message()
+            .unwrap_or("")
+            .lines()
+            .next()
+            .unwrap_or("")
+            .to_string();
+
+        result.push(BranchInfo { name, is_head, upstream, tip_sha, tip_message });
+    }
+
+    Ok(result)
+}
+
+/// HEAD ブランチまたは指定コミットから新規ブランチを作成する。
+#[tauri::command]
+fn create_branch(
+    repo_path: String,
+    branch_name: String,
+    from_sha: Option<String>,
+) -> Result<(), String> {
+    let repo = Repository::open(&repo_path).map_err(|e| e.message().to_string())?;
+    let commit = if let Some(sha) = from_sha {
+        let oid = git2::Oid::from_str(&sha).map_err(|e| e.to_string())?;
+        repo.find_commit(oid).map_err(|e| e.to_string())?
+    } else {
+        repo.head()
+            .map_err(|e| e.to_string())?
+            .peel_to_commit()
+            .map_err(|e| e.to_string())?
+    };
+    repo.branch(&branch_name, &commit, false).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// ローカルブランチにチェックアウトする。未コミット変更がある場合はエラー。
+#[tauri::command]
+fn checkout_branch(repo_path: String, branch_name: String) -> Result<(), String> {
+    let repo = Repository::open(&repo_path).map_err(|e| e.message().to_string())?;
+    let refname = format!("refs/heads/{branch_name}");
+    let obj = repo.revparse_single(&refname).map_err(|e| e.to_string())?;
+
+    let mut builder = git2::build::CheckoutBuilder::new();
+    builder.safe();
+    repo.checkout_tree(&obj, Some(&mut builder))
+        .map_err(|e| e.to_string())?;
+    repo.set_head(&refname).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// ブランチを削除する（現在 HEAD のブランチは削除不可）。
+#[tauri::command]
+fn delete_branch(repo_path: String, branch_name: String) -> Result<(), String> {
+    let repo = Repository::open(&repo_path).map_err(|e| e.message().to_string())?;
+    let mut branch = repo
+        .find_branch(&branch_name, git2::BranchType::Local)
+        .map_err(|e| e.to_string())?;
+    if branch.is_head() {
+        return Err(format!("'{branch_name}' は現在 HEAD のブランチです"));
+    }
+    branch.delete().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// 指定ブランチを現在の HEAD にマージする。
+/// - Fast-forward 可能な場合は FF のみ実施
+/// - それ以外はマージコミットを作成（コンフリクト時はエラー）
+/// 戻り値: "fast-forward" | "merge-commit:<short-sha>" | "already-up-to-date"
+#[tauri::command]
+fn merge_branch(
+    repo_path: String,
+    branch_name: String,
+    message: Option<String>,
+) -> Result<String, String> {
+    let repo = Repository::open(&repo_path).map_err(|e| e.message().to_string())?;
+    let branch = repo
+        .find_branch(&branch_name, git2::BranchType::Local)
+        .map_err(|e| e.to_string())?;
+    let branch_commit = branch.get().peel_to_commit().map_err(|e| e.to_string())?;
+    let head_commit = repo.head().map_err(|e| e.to_string())?.peel_to_commit().map_err(|e| e.to_string())?;
+
+    let merge_base = repo
+        .merge_base(head_commit.id(), branch_commit.id())
+        .map_err(|e| e.to_string())?;
+
+    if merge_base == branch_commit.id() {
+        return Ok("already-up-to-date".to_string());
+    }
+
+    if merge_base == head_commit.id() {
+        // Fast-forward
+        let head_ref = repo.head().map_err(|e| e.to_string())?;
+        let refname = head_ref.name().unwrap_or("HEAD");
+        repo.reference(refname, branch_commit.id(), true, "merge: Fast-forward")
+            .map_err(|e| e.to_string())?;
+        let obj = repo
+            .revparse_single(&branch_commit.id().to_string())
+            .map_err(|e| e.to_string())?;
+        let mut builder = git2::build::CheckoutBuilder::new();
+        builder.safe();
+        repo.checkout_tree(&obj, Some(&mut builder))
+            .map_err(|e| e.to_string())?;
+        return Ok("fast-forward".to_string());
+    }
+
+    // Three-way merge
+    let annotated = repo
+        .find_annotated_commit(branch_commit.id())
+        .map_err(|e| e.to_string())?;
+    let mut merge_opts = git2::MergeOptions::new();
+    let mut checkout_builder = git2::build::CheckoutBuilder::new();
+    checkout_builder.safe();
+    repo.merge(&[&annotated], Some(&mut merge_opts), Some(&mut checkout_builder))
+        .map_err(|e| e.to_string())?;
+
+    let index = repo.index().map_err(|e| e.to_string())?;
+    if index.has_conflicts() {
+        repo.cleanup_state().map_err(|e| e.to_string())?;
+        return Err(format!("'{branch_name}' とのマージでコンフリクトが発生しました"));
+    }
+
+    let sig = repo.signature().map_err(|e| e.to_string())?;
+    let msg = message.unwrap_or_else(|| format!("Merge branch '{branch_name}'"));
+    let mut idx = repo.index().map_err(|e| e.to_string())?;
+    let tree_id = idx.write_tree().map_err(|e| e.to_string())?;
+    let tree = repo.find_tree(tree_id).map_err(|e| e.to_string())?;
+    let oid = repo
+        .commit(Some("HEAD"), &sig, &sig, &msg, &tree, &[&head_commit, &branch_commit])
+        .map_err(|e| e.to_string())?;
+    repo.cleanup_state().map_err(|e| e.to_string())?;
+
+    Ok(format!("merge-commit:{}", &oid.to_string()[..7]))
+}
+
+/// ファイルを git mv する（ファイルシステム移動 + インデックス更新）。
+#[tauri::command]
+fn rename_file(
+    repo_path: String,
+    old_relative_path: String,
+    new_relative_path: String,
+) -> Result<(), String> {
+    let repo = Repository::open(&repo_path).map_err(|e| e.message().to_string())?;
+    let workdir = repo
+        .workdir()
+        .ok_or("bare リポジトリはサポートしていません")?;
+
+    let old_abs = workdir.join(&old_relative_path);
+    let new_abs = workdir.join(&new_relative_path);
+
+    if let Some(parent) = new_abs.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+
+    std::fs::rename(&old_abs, &new_abs).map_err(|e| e.to_string())?;
+
+    let mut index = repo.index().map_err(|e| e.to_string())?;
+    index
+        .remove_path(std::path::Path::new(&old_relative_path))
+        .map_err(|e| e.to_string())?;
+    index
+        .add_path(std::path::Path::new(&new_relative_path))
+        .map_err(|e| e.to_string())?;
+    index.write().map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
 // ── PDF ヘルパー ────────────────────────────────────────────────
 
 fn init_pdfium() -> Result<Pdfium, String> {
@@ -515,6 +718,12 @@ pub fn run() {
             get_working_tree_status,
             stage_file,
             create_commit,
+            list_branches,
+            create_branch,
+            checkout_branch,
+            delete_branch,
+            merge_branch,
+            rename_file,
             get_pdf_page_count,
             get_pdf_page_count_at_commit,
             render_pdf_page,
