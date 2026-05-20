@@ -96,14 +96,22 @@ function computeGraph(commits: CommitInfo[]): GraphRow[] {
 	return rows;
 }
 
-function formatRelativeTime(timestamp: number): string {
-	const diff = Math.floor(Date.now() / 1000) - timestamp;
-	if (diff < 60) return "たった今";
-	if (diff < 3600) return `${Math.floor(diff / 60)}分前`;
-	if (diff < 86400) return `${Math.floor(diff / 3600)}時間前`;
-	if (diff < 86400 * 30) return `${Math.floor(diff / 86400)}日前`;
-	if (diff < 86400 * 365) return `${Math.floor(diff / (86400 * 30))}ヶ月前`;
-	return `${Math.floor(diff / (86400 * 365))}年前`;
+function formatMonthDay(timestamp: number): string {
+	const d = new Date(timestamp * 1000);
+	const mm = String(d.getMonth() + 1).padStart(2, "0");
+	const dd = String(d.getDate()).padStart(2, "0");
+	return `${mm}/${dd}`;
+}
+
+function formatFullDateTime(timestamp: number): string {
+	const d = new Date(timestamp * 1000);
+	const yy = String(d.getFullYear()).slice(2);
+	const mm = String(d.getMonth() + 1).padStart(2, "0");
+	const dd = String(d.getDate()).padStart(2, "0");
+	const hh = String(d.getHours()).padStart(2, "0");
+	const min = String(d.getMinutes()).padStart(2, "0");
+	const sec = String(d.getSeconds()).padStart(2, "0");
+	return `${yy}/${mm}/${dd} ${hh}:${min}:${sec}`;
 }
 
 const LANE_W = 14;
@@ -160,7 +168,11 @@ export function CommitTree({
 	selectedHash,
 	onSelect,
 }: CommitTreeProps) {
-	const rows = useMemo(() => computeGraph(commits), [commits]);
+	const sorted = useMemo(
+		() => [...commits].sort((a, b) => b.timestamp - a.timestamp),
+		[commits],
+	);
+	const rows = useMemo(() => computeGraph(sorted), [sorted]);
 	const maxLanes = useMemo(() => {
 		let max = 1;
 		for (const row of rows) {
@@ -171,7 +183,7 @@ export function CommitTree({
 		return max;
 	}, [rows]);
 
-	if (commits.length === 0) {
+	if (sorted.length === 0) {
 		return (
 			<div className="flex items-center justify-center h-full text-muted-foreground text-sm">
 				コミットなし
@@ -204,8 +216,8 @@ export function CommitTree({
 											{ref}
 										</Badge>
 									))}
-									<span className="text-xs text-muted-foreground shrink-0 ml-auto pl-1">
-										{formatRelativeTime(row.commit.timestamp)}
+									<span className="text-[10px] text-muted-foreground shrink-0 ml-auto pl-1 tabular-nums">
+										{formatMonthDay(row.commit.timestamp)}
 									</span>
 								</div>
 							</TooltipTrigger>
@@ -213,6 +225,9 @@ export function CommitTree({
 								<p className="font-medium">{row.commit.subject}</p>
 								<p className="opacity-60 mt-0.5">
 									{row.commit.author.name} · {row.commit.short_sha}
+								</p>
+								<p className="opacity-60 tabular-nums">
+									{formatFullDateTime(row.commit.timestamp)}
 								</p>
 							</TooltipContent>
 						</Tooltip>

@@ -2,16 +2,21 @@ import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
 
 interface Props {
-	filePath: string;
+	repoPath: string;
+	filePath: string;   // relative path within repo (e.g. "A-101.pdf")
+	commitSha?: string; // if set, render at this commit
 }
 
-export function PdfViewer({ filePath }: Props) {
+export function PdfViewer({ repoPath, filePath, commitSha }: Props) {
+	const absolutePath = `${repoPath}/${filePath}`;
+
 	const [numPages, setNumPages] = useState(0);
 	const [currentPage, setCurrentPage] = useState(0);
 	const [imgSrc, setImgSrc] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 
+	// Page count — always from working tree as approximation
 	useEffect(() => {
 		let cancelled = false;
 		setImgSrc(null);
@@ -20,11 +25,12 @@ export function PdfViewer({ filePath }: Props) {
 		setError(null);
 		setLoading(true);
 
-		invoke<number>("get_pdf_page_count", { path: filePath })
+		invoke<number>("get_pdf_page_count", { path: absolutePath })
 			.then((count) => {
-				if (cancelled) return;
-				setNumPages(count);
-				setCurrentPage(0);
+				if (!cancelled) {
+					setNumPages(count);
+					setCurrentPage(0);
+				}
 			})
 			.catch((e) => {
 				if (!cancelled) setError(String(e));
@@ -33,18 +39,29 @@ export function PdfViewer({ filePath }: Props) {
 		return () => {
 			cancelled = true;
 		};
-	}, [filePath]);
+	}, [absolutePath]);
 
+	// Render page — commit-aware
 	useEffect(() => {
 		if (numPages === 0) return;
 		let cancelled = false;
 		setLoading(true);
 
-		invoke<ArrayBuffer>("render_pdf_page", {
-			path: filePath,
-			page: currentPage,
-			scale: 1.5,
-		})
+		const renderCall = commitSha
+			? invoke<ArrayBuffer>("render_pdf_page_at_commit", {
+					repoPath,
+					commitSha,
+					filePath,
+					page: currentPage,
+					scale: 1.5,
+				})
+			: invoke<ArrayBuffer>("render_pdf_page", {
+					path: absolutePath,
+					page: currentPage,
+					scale: 1.5,
+				});
+
+		renderCall
 			.then((buf) => {
 				if (cancelled) return;
 				const blob = new Blob([buf], { type: "image/png" });
@@ -62,7 +79,7 @@ export function PdfViewer({ filePath }: Props) {
 		return () => {
 			cancelled = true;
 		};
-	}, [filePath, currentPage, numPages]);
+	}, [absolutePath, repoPath, filePath, commitSha, currentPage, numPages]);
 
 	if (error) {
 		return (

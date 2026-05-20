@@ -100,9 +100,6 @@ function App() {
 		};
 	}, [repoPath]);
 
-	const selectedFilePath =
-		selectedFile && repoPath ? `${repoPath}/${selectedFile}` : null;
-
 	const selectedCommitInfo = commits.find((c) => c.hash === selectedCommit);
 
 	return (
@@ -188,8 +185,12 @@ function App() {
 								プレビュー
 							</div>
 							<div className="flex-1 min-h-0 overflow-hidden">
-								{selectedFilePath ? (
-									<PdfViewer filePath={selectedFilePath} />
+								{selectedFile && repoPath ? (
+									<PdfViewer
+										repoPath={repoPath}
+										filePath={selectedFile}
+										commitSha={selectedCommit ?? undefined}
+									/>
 								) : (
 									<div className="flex items-center justify-center h-full text-muted-foreground text-sm">
 										ファイルを選択してください
