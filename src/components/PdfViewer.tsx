@@ -1,78 +1,78 @@
 import { invoke } from "@tauri-apps/api/core";
-import * as pdfjsLib from "pdfjs-dist";
-import workerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-import { useEffect, useRef, useState } from "react";
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
+import { useEffect, useState } from "react";
 
 interface Props {
 	filePath: string;
 }
 
 export function PdfViewer({ filePath }: Props) {
-	const [pdf, setPdf] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
 	const [numPages, setNumPages] = useState(0);
-	const [currentPage, setCurrentPage] = useState(1);
-	const canvasRef = useRef<HTMLCanvasElement>(null);
+	const [currentPage, setCurrentPage] = useState(0);
+	const [imgSrc, setImgSrc] = useState<string | null>(null);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
 
 	useEffect(() => {
 		let cancelled = false;
-		setPdf(null);
-		setCurrentPage(1);
+		setImgSrc(null);
+		setNumPages(0);
+		setCurrentPage(0);
+		setError(null);
+		setLoading(true);
 
-		let task: pdfjsLib.PDFDocumentLoadingTask | null = null;
-
-		invoke<ArrayBuffer>("read_pdf_bytes", { path: filePath })
-			.then((buffer) => {
+		invoke<number>("get_pdf_page_count", { path: filePath })
+			.then((count) => {
 				if (cancelled) return;
-				task = pdfjsLib.getDocument({ data: buffer });
-				return task.promise;
+				setNumPages(count);
+				setCurrentPage(0);
 			})
-			.then((doc) => {
-				if (!doc || cancelled) {
-					doc?.destroy();
-					return;
-				}
-				setPdf(doc);
-				setNumPages(doc.numPages);
-			})
-			.catch(console.error);
+			.catch((e) => {
+				if (!cancelled) setError(String(e));
+			});
 
 		return () => {
 			cancelled = true;
-			task?.destroy();
 		};
 	}, [filePath]);
 
 	useEffect(() => {
-		if (!pdf || !canvasRef.current) return;
+		if (numPages === 0) return;
 		let cancelled = false;
+		setLoading(true);
 
-		pdf
-			.getPage(currentPage)
-			.then((page) => {
-				if (cancelled || !canvasRef.current) return;
-				const canvas = canvasRef.current;
-				const ctx = canvas.getContext("2d");
-				if (!ctx) return;
-				const containerWidth = canvas.parentElement?.clientWidth ?? 400;
-				const baseVp = page.getViewport({ scale: 1 });
-				const scale = containerWidth / baseVp.width;
-				const viewport = page.getViewport({ scale });
-				canvas.width = viewport.width;
-				canvas.height = viewport.height;
-				page
-					.render({ canvasContext: ctx, canvas, viewport })
-					.promise.catch(console.error);
+		invoke<ArrayBuffer>("render_pdf_page", {
+			path: filePath,
+			page: currentPage,
+			scale: 1.5,
+		})
+			.then((buf) => {
+				if (cancelled) return;
+				const blob = new Blob([buf], { type: "image/png" });
+				const url = URL.createObjectURL(blob);
+				setImgSrc((prev) => {
+					if (prev) URL.revokeObjectURL(prev);
+					return url;
+				});
+				setLoading(false);
 			})
-			.catch(console.error);
+			.catch((e) => {
+				if (!cancelled) setError(String(e));
+			});
 
 		return () => {
 			cancelled = true;
 		};
-	}, [pdf, currentPage]);
+	}, [filePath, currentPage, numPages]);
 
-	if (!pdf) {
+	if (error) {
+		return (
+			<div className="flex items-center justify-center h-full text-destructive text-sm p-4">
+				{error}
+			</div>
+		);
+	}
+
+	if (numPages === 0) {
 		return (
 			<div className="flex items-center justify-center h-full text-muted-foreground text-sm italic">
 				読み込み中...
@@ -86,18 +86,18 @@ export function PdfViewer({ filePath }: Props) {
 				<div className="flex items-center justify-center gap-3 py-2 border-b border-border text-xs shrink-0">
 					<button
 						type="button"
-						disabled={currentPage <= 1}
+						disabled={currentPage <= 0}
 						onClick={() => setCurrentPage((p) => p - 1)}
 						className="px-2 py-1 bg-muted rounded disabled:opacity-40 hover:bg-muted/70"
 					>
 						‹
 					</button>
 					<span className="text-muted-foreground">
-						{currentPage} / {numPages}
+						{currentPage + 1} / {numPages}
 					</span>
 					<button
 						type="button"
-						disabled={currentPage >= numPages}
+						disabled={currentPage >= numPages - 1}
 						onClick={() => setCurrentPage((p) => p + 1)}
 						className="px-2 py-1 bg-muted rounded disabled:opacity-40 hover:bg-muted/70"
 					>
@@ -105,8 +105,19 @@ export function PdfViewer({ filePath }: Props) {
 					</button>
 				</div>
 			)}
-			<div className="flex-1 overflow-auto p-2">
-				<canvas ref={canvasRef} className="w-full" />
+			<div className="flex-1 overflow-auto p-2 relative">
+				{loading && (
+					<div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm">
+						レンダリング中...
+					</div>
+				)}
+				{imgSrc && (
+					<img
+						src={imgSrc}
+						alt={`ページ ${currentPage + 1}`}
+						className="w-full"
+					/>
+				)}
 			</div>
 		</div>
 	);

@@ -1,4 +1,5 @@
 use git2::Repository;
+use pdfium_render::prelude::*;
 use std::collections::HashMap;
 
 #[derive(serde::Serialize)]
@@ -108,10 +109,56 @@ fn get_commits(path: String, max_count: usize) -> Result<Vec<CommitInfo>, String
     Ok(commits)
 }
 
+fn load_pdfium() -> Result<Pdfium, String> {
+    let bindings = Pdfium::bind_to_library(Pdfium::pdfium_platform_library_name_at_path("./"))
+        .or_else(|_| Pdfium::bind_to_system_library())
+        .map_err(|e| format!("pdfium.dll が見つかりません: {e}"))?;
+    Ok(Pdfium::new(bindings))
+}
+
 #[tauri::command]
-fn read_pdf_bytes(path: String) -> Result<tauri::ipc::Response, String> {
-    let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
-    Ok(tauri::ipc::Response::new(bytes))
+fn get_pdf_page_count(path: String) -> Result<u32, String> {
+    let pdfium = load_pdfium()?;
+    let doc = pdfium.load_pdf_from_file(&path, None).map_err(|e| e.to_string())?;
+    Ok(doc.pages().len() as u32)
+}
+
+#[tauri::command]
+fn render_pdf_page(path: String, page: u32, scale: f32) -> Result<tauri::ipc::Response, String> {
+    let pdfium = load_pdfium()?;
+    let doc = pdfium.load_pdf_from_file(&path, None).map_err(|e| e.to_string())?;
+
+    let pages = doc.pages();
+    let pdf_page = pages
+        .get(page as i32)
+        .map_err(|e| e.to_string())?;
+
+    let render_config = PdfRenderConfig::new()
+        .scale_page_by_factor(scale);
+
+    let bitmap = pdf_page
+        .render_with_config(&render_config)
+        .map_err(|e| e.to_string())?;
+
+    let png_bytes = bitmap
+        .as_image()
+        .map_err(|e| e.to_string())?
+        .into_rgba8()
+        .into_vec();
+
+    // PNG エンコード
+    let width = bitmap.width() as u32;
+    let height = bitmap.height() as u32;
+    let mut buf = Vec::new();
+    {
+        let mut encoder = png::Encoder::new(&mut buf, width, height);
+        encoder.set_color(png::ColorType::Rgba);
+        encoder.set_depth(png::BitDepth::Eight);
+        let mut writer = encoder.write_header().map_err(|e| e.to_string())?;
+        writer.write_image_data(&png_bytes).map_err(|e| e.to_string())?;
+    }
+
+    Ok(tauri::ipc::Response::new(buf))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -119,7 +166,12 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![open_repo, get_commits, read_pdf_bytes])
+        .invoke_handler(tauri::generate_handler![
+            open_repo,
+            get_commits,
+            get_pdf_page_count,
+            render_pdf_page,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
