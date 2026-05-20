@@ -18,6 +18,7 @@ function App() {
 	const [commits, setCommits] = useState<CommitInfo[]>([]);
 	const [error, setError] = useState<string | null>(null);
 	const [pdfPath, setPdfPath] = useState<string | null>(null);
+	const [selectedHash, setSelectedHash] = useState<string | null>(null);
 
 	async function openPdf() {
 		const selected = await open({
@@ -106,7 +107,11 @@ function App() {
 				</div>
 				<div className="flex-1 overflow-y-auto flex flex-col">
 					{repo ? (
-						<CommitTree commits={commits} />
+						<CommitTree
+							commits={commits}
+							selectedHash={selectedHash}
+							onSelect={setSelectedHash}
+						/>
 					) : (
 						<div className="flex items-center justify-center h-full">
 							<p className="text-muted-foreground text-sm">

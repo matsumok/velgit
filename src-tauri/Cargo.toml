@@ -27,4 +27,6 @@ git2 = { version = "0.21.0", features = ["vendored-libgit2"] }
 tauri-plugin-dialog = "2.7.1"
 pdfium-render = { version = "0.9.1", features = ["thread_safe"] }
 png = "0.17"
+image = "0.25"
+base64 = "0.22"
 

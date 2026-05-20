@@ -270,8 +270,8 @@ commitメッセージ例:
 - ~~git2-rsによるリポジトリ操作（init / add / commit / log）~~ ✅ 完了
 - ~~react-gitgraphによるコミットツリー表示~~ ✅ 完了
 - ~~pdfium-renderによるPDFプレビュー表示（PDF.jsから移行）~~ ✅ 完了（2026-05-20）
-- pdfium-renderによるdiff用PDF画像化
-- pixelmatchによる基本的なdiff表示
+- ~~pdfium-renderによるdiff用PDF画像化~~ ✅ 完了（2026-05-20）
+- pixelmatchによる基本的なdiff表示（フロント側 UI 待ち）
 
 ### Phase 2
 - UNCパス対応の検証・修正
