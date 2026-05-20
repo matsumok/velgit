@@ -134,7 +134,7 @@ function App() {
 			{repoInfo ? (
 				<ResizablePanelGroup orientation="horizontal" className="flex-1 min-h-0">
 					{/* Left: compact commit tree */}
-					<ResizablePanel defaultSize={22} minSize={14} maxSize={35}>
+					<ResizablePanel defaultSize={180} minSize={100}>
 						<div className="h-full flex flex-col">
 							<div className="px-3 h-8 flex items-center text-xs text-muted-foreground border-b border-border shrink-0">
 								コミット履歴
@@ -152,7 +152,7 @@ function App() {
 					<ResizableHandle withHandle />
 
 					{/* Center: files changed in selected commit */}
-					<ResizablePanel defaultSize={38} minSize={20}>
+					<ResizablePanel defaultSize={580} minSize={150}>
 						<div className="h-full flex flex-col">
 							<div className="px-3 h-8 flex items-center gap-2 text-xs text-muted-foreground border-b border-border shrink-0 overflow-hidden">
 								{selectedCommitInfo ? (
@@ -182,7 +182,7 @@ function App() {
 					<ResizableHandle withHandle />
 
 					{/* Right: PDF preview */}
-					<ResizablePanel defaultSize={40} minSize={20}>
+					<ResizablePanel defaultSize={580} minSize={200}>
 						<div className="h-full flex flex-col">
 							<div className="px-3 h-8 flex items-center text-xs text-muted-foreground border-b border-border shrink-0">
 								プレビュー
