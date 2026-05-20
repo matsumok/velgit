@@ -372,6 +372,16 @@ interface RepoInfo {
 | CI/CD | ローカルビルドのみ（当面） |
 | ライセンス | GPL-3.0-or-later |
 
+### コード品質（biome）
+
+- **リンター・フォーマッター**: [biome](https://biomejs.dev/)（`biome.json` で設定済み）
+- **コミット前に必ず実行**: `pnpm biome check src/`
+  - エラー・警告がゼロであることを確認してからコミットする
+- **保存時自動修正**: `.zed/settings.json` および `.vscode/settings.json` で設定済み
+  - Zed: biome 拡張を有効化すれば自動で適用される
+  - VS Code: `biomejs.biome` 拡張をインストールすれば自動で適用される
+- **除外対象**: `src/components/ui/**`（shadcn 生成コード）は `biome.json` の `overrides` で除外済み
+
 ### 前提ツール
 
 ```powershell

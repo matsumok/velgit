@@ -1,0 +1,26 @@
+{
+	"format_on_save": "on",
+	"formatter": "language_server",
+	"languages": {
+		"TypeScript": {
+			"format_on_save": "on",
+			"formatter": "language_server",
+			"language_servers": ["biome", "..."]
+		},
+		"TSX": {
+			"format_on_save": "on",
+			"formatter": "language_server",
+			"language_servers": ["biome", "..."]
+		},
+		"JavaScript": {
+			"format_on_save": "on",
+			"formatter": "language_server",
+			"language_servers": ["biome", "..."]
+		},
+		"CSS": {
+			"format_on_save": "on",
+			"formatter": "language_server",
+			"language_servers": ["biome", "..."]
+		}
+	}
+}
