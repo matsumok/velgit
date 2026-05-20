@@ -26,7 +26,7 @@ SourcetreeライクなGit GUIに、PDFの視覚的diff表示を統合する。
 | UIコンポーネント | shadcn（Base / Lyra プリセット） |
 | アイコン | @phosphor-icons/react |
 | Git操作 | git2-rs |
-| PDF画像化 | pdfium-render ※nightly互換性問題あり、現在除外中 |
+| PDF描画・画像化 | pdfium-render（プレビュー・diff両用） |
 | 差分検出 | pixelmatch（JS側） |
 | ツリー描画 | react-gitgraph |
 | スタイリング | Tailwind CSS v4 |
@@ -42,21 +42,20 @@ SourcetreeライクなGit GUIに、PDFの視覚的diff表示を統合する。
 Tauri
 ├── フロントエンド（React + TypeScript + shadcn）
 │   ├── コミットツリー（react-gitgraph）
-│   ├── PDFビューア（PDF.js）
+│   ├── PDFビューア（pdfium-render経由のPNG表示）
 │   └── diffビューア（pixelmatch）
 └── バックエンド（Rust）
     ├── git2-rs（Git操作）
-    └── pdfium-render（PDF→画像変換）
+    └── pdfium-render（PDF→PNG変換。プレビュー・diff共用）
 ```
 
 ### PDF操作の役割分担
 
 ```
-PDF.js（フロントエンド）
-  → プレビュー表示
-
 pdfium-render（Rustバックエンド）
-  → diff用の画像生成（大判・高解像度を高速処理）
+  → プレビュー用PNG生成（低解像度）
+  → diff用PNG生成（高解像度）
+  ※ エンジンを統一することで依存を削減し、レンダリング結果の一貫性を確保
 
 lopdf（将来）
   → メタデータ抽出・タイトルブロックパース
@@ -163,14 +162,21 @@ pub struct DiffConfig {
 **ライセンス義務**: Apache 2.0 / MIT の NOTICEファイルを配布物に同梱する  
 **注意**: DINOv2はImageNet学習済み（CADはドメイン外）。類似度は絶対値でなく相対値として使い、感度は設定で調整可能にする。
 
-### 大判PDF対応（A1 300dpi = ~10,000×7,000px）
+### PDF解像度方針（基本サイズ: A3）
+
+基本図面サイズはA3（297×420mm）。A1対応も視野に入れた設計とする。
+
+| サイズ | 72dpi（プレビュー） | 300dpi（diff） |
+|--------|-------------------|---------------|
+| A3 | ~840×1190px | ~3508×4961px |
+| A1 | ~2384×1684px | ~9933×7016px |
 
 ```
 Pass 1（72dpi）: 全体スクリーニング → 変化あり領域を特定
 Pass 2（300dpi）: 変化あり領域のみ高解像度で再処理
 ```
 タイルサイズ: 512×512、stride 448（64pxオーバーラップ）  
-ピーク使用メモリ: ~124MB
+A3 300dpiのピーク使用メモリ: ~52MB
 
 ---
 
@@ -235,11 +241,6 @@ commitメッセージ例:
 
 ### 高優先（設計初期に解決必要）
 
-- **pdfium-renderのnightly互換性**
-  - 最新nightly（2026-05-20時点）でビルドエラー（1513 errors）のためCargo.tomlから除外中
-  - PDF機能実装前に動作するnightlyバージョンを検証して固定する
-  - `rust-toolchain.toml`で日付指定（例: `channel = "nightly-2025-xx-xx"`）で対応予定
-
 - **pdfium.dllの配布戦略**
   - Windowsでは`pdfium.dll`（約3MB）をアプリに同梱する必要あり
   - Tauriのバンドル設定で対応
@@ -249,12 +250,8 @@ commitメッセージ例:
 
 ### 中優先（実装中に直面）
 
-- **大判PDFのメモリ管理**
-  - 300dpiでA1 = 約10,000×7,000px
-  - 段階的解像度処理（低解像で差分領域を検出 → 該当箇所のみ高解像）を検討
-
 - **差分画像のフロント受け渡し設計**
-  - base64渡し vs 一時ファイルパス渡しの判断
+  - base64渡し vs 一時ファイルパス渡しの判断（現状: ipc::Response でバイナリ直渡し）
 
 ### 後回し
 
@@ -270,10 +267,10 @@ commitメッセージ例:
 
 ### Phase 1（MVP）
 - ~~Tauriプロジェクトのskeleton作成~~ ✅ 完了（2026-05-20）
-- git2-rsによるリポジトリ操作（init / add / commit / log）
-- react-gitgraphによるコミットツリー表示
-- PDF.jsによるPDFプレビュー
-- pdfium-renderによるPDF画像化
+- ~~git2-rsによるリポジトリ操作（init / add / commit / log）~~ ✅ 完了
+- ~~react-gitgraphによるコミットツリー表示~~ ✅ 完了
+- pdfium-renderによるPDFプレビュー表示（PDF.jsから移行）
+- pdfium-renderによるdiff用PDF画像化
 - pixelmatchによる基本的なdiff表示
 
 ### Phase 2
@@ -297,7 +294,7 @@ commitメッセージ例:
 |------|------|
 | OS | Windows 11 |
 | エディタ | Zed |
-| Rustツールチェーン | nightly（x86_64-pc-windows-msvc） |
+| Rustツールチェーン | stable（x86_64-pc-windows-msvc） |
 | Node.jsバージョン管理 | fnm（Windows向け nvm相当） |
 | パッケージマネージャ | pnpm（corepack経由） |
 | ビルド | Windowsネイティブビルド |
@@ -314,10 +311,7 @@ commitメッセージ例:
 # 2. Rustup
 winget install Rustlang.Rustup
 
-# 3. nightlyツールチェーン（インストールのみ。プロジェクト内は rust-toolchain.toml で自動切替）
-rustup toolchain install nightly
-
-# 4. fnm（Node.jsバージョン管理）
+# 3. fnm（Node.jsバージョン管理）
 winget install Schniz.fnm
 fnm install --lts
 fnm use --lts
