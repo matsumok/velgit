@@ -355,3 +355,15 @@ cargo tauri build
 - Tauriの`.msi`インストーラで配布
 - `pdfium.dll`を同梱
 - Git for Windowsは別途インストール不要（git2-rsはlibgit2を静的リンク）
+
+## MCP Settings
+
+```jsonc
+{
+  "mcpServers": {
+    "shadcn": {
+      "command": "npx",
+      "args": ["shadcn-mcp", "start"]
+    }
+  }
+}
