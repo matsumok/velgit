@@ -2,6 +2,9 @@ use git2::Repository;
 use pdfium_render::prelude::*;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::Mutex;
+
+pub struct PdfiumHandle(Mutex<Option<Pdfium>>);
 
 #[derive(serde::Serialize)]
 pub struct RepoInfo {
@@ -110,14 +113,12 @@ fn get_commits(path: String, max_count: usize) -> Result<Vec<CommitInfo>, String
     Ok(commits)
 }
 
-fn load_pdfium() -> Result<Pdfium, String> {
+fn init_pdfium() -> Result<Pdfium, String> {
     let exe_dir = std::env::current_exe()
         .ok()
         .and_then(|p| p.parent().map(PathBuf::from))
         .unwrap_or_default();
 
-    // exe と同じディレクトリ（dev: target/debug/, prod: インストール先）を優先し、
-    // 見つからなければシステムの DLL 検索パスにフォールバック
     let bindings =
         Pdfium::bind_to_library(Pdfium::pdfium_platform_library_name_at_path(&exe_dir))
             .or_else(|_| Pdfium::bind_to_system_library())
@@ -126,24 +127,37 @@ fn load_pdfium() -> Result<Pdfium, String> {
 }
 
 #[tauri::command]
-fn get_pdf_page_count(path: String) -> Result<u32, String> {
-    let pdfium = load_pdfium()?;
+fn get_pdf_page_count(
+    pdfium_handle: tauri::State<PdfiumHandle>,
+    path: String,
+) -> Result<u32, String> {
+    let mut guard = pdfium_handle.0.lock().map_err(|e| e.to_string())?;
+    if guard.is_none() {
+        *guard = Some(init_pdfium()?);
+    }
+    let pdfium = guard.as_ref().unwrap();
     let doc = pdfium.load_pdf_from_file(&path, None).map_err(|e| e.to_string())?;
     Ok(doc.pages().len() as u32)
 }
 
 #[tauri::command]
-fn render_pdf_page(path: String, page: u32, scale: f32) -> Result<tauri::ipc::Response, String> {
-    let pdfium = load_pdfium()?;
+fn render_pdf_page(
+    pdfium_handle: tauri::State<PdfiumHandle>,
+    path: String,
+    page: u32,
+    scale: f32,
+) -> Result<tauri::ipc::Response, String> {
+    let mut guard = pdfium_handle.0.lock().map_err(|e| e.to_string())?;
+    if guard.is_none() {
+        *guard = Some(init_pdfium()?);
+    }
+    let pdfium = guard.as_ref().unwrap();
     let doc = pdfium.load_pdf_from_file(&path, None).map_err(|e| e.to_string())?;
 
     let pages = doc.pages();
-    let pdf_page = pages
-        .get(page as i32)
-        .map_err(|e| e.to_string())?;
+    let pdf_page = pages.get(page as i32).map_err(|e| e.to_string())?;
 
-    let render_config = PdfRenderConfig::new()
-        .scale_page_by_factor(scale);
+    let render_config = PdfRenderConfig::new().scale_page_by_factor(scale);
 
     let bitmap = pdf_page
         .render_with_config(&render_config)
@@ -155,7 +169,6 @@ fn render_pdf_page(path: String, page: u32, scale: f32) -> Result<tauri::ipc::Re
         .into_rgba8()
         .into_vec();
 
-    // PNG エンコード
     let width = bitmap.width() as u32;
     let height = bitmap.height() as u32;
     let mut buf = Vec::new();
@@ -175,6 +188,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .manage(PdfiumHandle(Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![
             open_repo,
             get_commits,
