@@ -1,6 +1,6 @@
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "./lib/utils";
 import { ThreePaneLayout } from "./components/layout/ThreePaneLayout";
 import { useAppStore } from "./store/useAppStore";
@@ -31,6 +31,22 @@ function DrawingList() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { data: drawings } = useGetDrawings();
+
+  useEffect(() => {
+    if (!selectedProject) return;
+    invoke<boolean>("is_initialized", { path: selectedProject }).then(
+      (initialized) => {
+        if (!initialized) {
+          setSelectedProject(null);
+          return;
+        }
+        invoke("init_working_folder", { path: selectedProject }).catch(() =>
+          setSelectedProject(null),
+        );
+      },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleOpenFolder() {
     const path = await openDialog({ directory: true, multiple: false });

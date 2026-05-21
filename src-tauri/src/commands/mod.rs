@@ -53,6 +53,15 @@ impl From<sqlx::Error> for OpenError {
     }
 }
 
+pub fn velgit_db_path(folder: &Path) -> std::path::PathBuf {
+    folder.join(".git").join("velgit").join("velgit.db")
+}
+
+#[tauri::command]
+pub fn is_initialized(path: String) -> bool {
+    velgit_db_path(Path::new(&path)).exists()
+}
+
 #[tauri::command]
 pub async fn init_working_folder(
     path: String,
@@ -95,6 +104,30 @@ mod tests {
     use super::*;
     use std::fs;
     use tempfile::tempdir;
+
+    #[test]
+    fn is_initialized_returns_false_without_velgit_db() {
+        let dir = tempdir().unwrap();
+        // .git/ はあるが .git/velgit/velgit.db がない
+        fs::create_dir(dir.path().join(".git")).unwrap();
+
+        assert!(!is_initialized(dir.path().to_str().unwrap().to_string()));
+    }
+
+    #[test]
+    fn is_initialized_returns_false_for_missing_folder() {
+        assert!(!is_initialized("/nonexistent/path/that/does/not/exist".to_string()));
+    }
+
+    #[test]
+    fn is_initialized_returns_true_for_initialized_folder() {
+        let dir = tempdir().unwrap();
+        let db_path = velgit_db_path(dir.path());
+        fs::create_dir_all(db_path.parent().unwrap()).unwrap();
+        fs::write(&db_path, b"").unwrap();
+
+        assert!(is_initialized(dir.path().to_str().unwrap().to_string()));
+    }
 
     #[test]
     fn scan_pdfs_returns_pdf_files() {

@@ -30,6 +30,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            commands::is_initialized,
             commands::init_working_folder,
             commands::get_drawings,
         ])
