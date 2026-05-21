@@ -1,5 +1,31 @@
 use std::path::Path;
 
+fn ensure_safe_directory(path: &Path) {
+    let Some(path_str) = path.to_str() else { return };
+    // Git normalizes paths to forward slashes (important for UNC/Samba: \\server\share → //server/share)
+    let path_str_norm = path_str.replace('\\', "/");
+    let path_str = path_str_norm.as_str();
+
+    let Ok(global_path) = git2::Config::find_global() else { return };
+    let Ok(mut cfg) = git2::Config::open(&global_path) else { return };
+
+    let mut already_set = false;
+    if let Ok(mut entries) = cfg.multivar("safe.directory", None) {
+        while let Some(entry) = entries.next() {
+            if let Ok(e) = entry {
+                if e.value().ok() == Some(path_str) {
+                    already_set = true;
+                    break;
+                }
+            }
+        }
+    }
+    if !already_set {
+        // "a^" never matches any existing value, so this always appends a new entry
+        let _ = cfg.set_multivar("safe.directory", "a^", path_str);
+    }
+}
+
 #[derive(Debug)]
 pub enum InitError {
     Git(git2::Error),
@@ -32,12 +58,14 @@ pub struct PendingChange {
 }
 
 pub fn init(path: &Path) -> Result<(), InitError> {
+    ensure_safe_directory(path);
     git2::Repository::init(path)?;
     std::fs::create_dir_all(path.join(".git").join("velgit"))?;
     Ok(())
 }
 
 pub fn pending_changes(repo_path: &Path) -> Result<Vec<PendingChange>, git2::Error> {
+    ensure_safe_directory(repo_path);
     let repo = git2::Repository::open(repo_path)?;
     let statuses = repo.statuses(None)?;
     let changes = statuses
@@ -76,6 +104,7 @@ pub fn commit(repo_path: &Path, message: &str, author: &str) -> Result<git2::Oid
     if message.is_empty() {
         return Err(git2::Error::from_str("commit message must not be empty"));
     }
+    ensure_safe_directory(repo_path);
     let repo = git2::Repository::open(repo_path)?;
     let mut index = repo.index()?;
     index.add_all(["*"].iter(), git2::IndexAddOption::DEFAULT, None)?;
