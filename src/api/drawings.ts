@@ -2,9 +2,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { useQuery } from "@tanstack/react-query";
 
 export interface Drawing {
-  id: string;
-  name: string;
-  number: string;
+  filename: string;
+  added_at: number;
 }
 
 export function useGetDrawings() {

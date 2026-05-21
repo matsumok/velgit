@@ -5,9 +5,8 @@ use crate::AppState;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DrawingDto {
-    pub id: String,
-    pub name: String,
-    pub number: String,
+    pub filename: String,
+    pub added_at: i64,
 }
 
 #[tauri::command]
