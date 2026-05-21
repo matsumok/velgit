@@ -131,14 +131,37 @@ function usePdfChangedListener() {
   }, [queryClient]);
 }
 
+function useWatcherState() {
+  const [isPolling, setIsPolling] = useState(false);
+  useEffect(() => {
+    const unlisten = listen<string>("watcher-state-changed", (e) => {
+      setIsPolling(e.payload === "pollingFallback");
+    });
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, []);
+  return isPolling;
+}
+
 function App() {
   usePdfChangedListener();
+  const isPolling = useWatcherState();
   return (
-    <ThreePaneLayout
-      left={<ProjectList />}
-      center={<DrawingList />}
-      right={<DrawingDetail />}
-    />
+    <div className="flex flex-col h-screen w-screen overflow-hidden">
+      <div className="flex-1 overflow-hidden">
+        <ThreePaneLayout
+          left={<ProjectList />}
+          center={<DrawingList />}
+          right={<DrawingDetail />}
+        />
+      </div>
+      {isPolling && (
+        <div className="shrink-0 border-t px-3 py-1 text-xs text-muted-foreground bg-muted">
+          ポーリングモードで監視中（ネイティブイベント利用不可）
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -85,7 +85,7 @@ pub async fn init_working_folder(
     let pdfs = scan_pdfs(path);
     pool.insert_drawings(&pdfs).await.map_err(|e| e.to_string())?;
 
-    let fw = FileWatcher::new(path, app_handle).map_err(|e| e.to_string())?;
+    let fw = FileWatcher::new(path, app_handle);
 
     *state.repo_path.lock().unwrap() = Some(path.to_path_buf());
     *state.db.lock().unwrap() = Some(pool);
