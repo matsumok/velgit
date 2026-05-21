@@ -1,0 +1,4 @@
+CREATE TABLE IF NOT EXISTS drawings (
+    filename TEXT PRIMARY KEY NOT NULL,
+    added_at INTEGER NOT NULL
+);
