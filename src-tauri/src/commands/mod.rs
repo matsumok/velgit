@@ -6,6 +6,7 @@ use tauri::State;
 use crate::{
     db::DbPool,
     repository::{self, ChangeKind, InitError},
+    watcher::FileWatcher,
     AppState,
 };
 
@@ -73,6 +74,7 @@ pub fn is_initialized(path: String) -> bool {
 pub async fn init_working_folder(
     path: String,
     state: State<'_, AppState>,
+    app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
     let path = Path::new(&path);
     repository::init(path).map_err(|e| format!("{:?}", e))?;
@@ -83,8 +85,11 @@ pub async fn init_working_folder(
     let pdfs = scan_pdfs(path);
     pool.insert_drawings(&pdfs).await.map_err(|e| e.to_string())?;
 
+    let fw = FileWatcher::new(path, app_handle).map_err(|e| e.to_string())?;
+
     *state.repo_path.lock().unwrap() = Some(path.to_path_buf());
     *state.db.lock().unwrap() = Some(pool);
+    *state.watcher.lock().unwrap() = Some(fw);
 
     Ok(())
 }
@@ -124,19 +129,15 @@ pub fn commit_changes(message: String, state: State<'_, AppState>) -> Result<(),
 }
 
 #[tauri::command]
-pub async fn get_drawings(state: State<'_, AppState>) -> Result<Vec<DrawingDto>, String> {
-    // ロックをスコープ内で解放してから await する
-    let pool_opt = {
-        let db = state.db.lock().unwrap();
-        db.as_ref().map(|p| DbPool(p.0.clone()))
-    };
-    let Some(pool) = pool_opt else {
+pub fn get_drawings(state: State<'_, AppState>) -> Result<Vec<DrawingDto>, String> {
+    let repo_path = state.repo_path.lock().unwrap().clone();
+    let Some(path) = repo_path else {
         return Ok(vec![]);
     };
-    let rows = pool.list_drawings().await.map_err(|e| e.to_string())?;
-    Ok(rows
+    let filenames = scan_pdfs(&path);
+    Ok(filenames
         .into_iter()
-        .map(|(filename, added_at)| DrawingDto { filename, added_at })
+        .map(|filename| DrawingDto { filename, added_at: 0 })
         .collect())
 }
 

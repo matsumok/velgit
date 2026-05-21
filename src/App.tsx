@@ -1,5 +1,6 @@
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "./lib/utils";
@@ -117,7 +118,21 @@ function DrawingDetail() {
   );
 }
 
+function usePdfChangedListener() {
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    const unlisten = listen("pdf-changed", () => {
+      queryClient.invalidateQueries({ queryKey: ["pending_changes"] });
+      queryClient.invalidateQueries({ queryKey: ["drawings"] });
+    });
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [queryClient]);
+}
+
 function App() {
+  usePdfChangedListener();
   return (
     <ThreePaneLayout
       left={<ProjectList />}

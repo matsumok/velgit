@@ -8,10 +8,12 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use db::DbPool;
+use watcher::FileWatcher;
 
 pub struct AppState {
     pub db: Mutex<Option<DbPool>>,
     pub repo_path: Mutex<Option<PathBuf>>,
+    pub watcher: Mutex<Option<FileWatcher>>,
 }
 
 impl AppState {
@@ -19,6 +21,7 @@ impl AppState {
         AppState {
             db: Mutex::new(None),
             repo_path: Mutex::new(None),
+            watcher: Mutex::new(None),
         }
     }
 }
