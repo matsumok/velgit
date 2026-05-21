@@ -1,7 +1,13 @@
+use std::path::Path;
+
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
-use crate::AppState;
+use crate::{
+    db::DbPool,
+    repository::{self, InitError},
+    AppState,
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DrawingDto {
@@ -9,7 +15,98 @@ pub struct DrawingDto {
     pub added_at: i64,
 }
 
+pub fn scan_pdfs(path: &Path) -> Vec<String> {
+    let Ok(entries) = std::fs::read_dir(path) else {
+        return vec![];
+    };
+    entries
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().extension().and_then(|s| s.to_str()) == Some("pdf"))
+        .filter_map(|e| e.file_name().into_string().ok())
+        .collect()
+}
+
+#[derive(Debug)]
+pub enum OpenError {
+    Init(InitError),
+    Db(sqlx::Error),
+}
+
+impl std::fmt::Display for OpenError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            OpenError::Init(e) => write!(f, "初期化エラー: {:?}", e),
+            OpenError::Db(e) => write!(f, "DB エラー: {}", e),
+        }
+    }
+}
+
+impl From<InitError> for OpenError {
+    fn from(e: InitError) -> Self {
+        OpenError::Init(e)
+    }
+}
+
+impl From<sqlx::Error> for OpenError {
+    fn from(e: sqlx::Error) -> Self {
+        OpenError::Db(e)
+    }
+}
+
 #[tauri::command]
-pub async fn get_drawings(_state: State<'_, AppState>) -> Result<Vec<DrawingDto>, String> {
-    todo!()
+pub async fn init_working_folder(
+    path: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let path = Path::new(&path);
+    repository::init(path).map_err(|e| format!("{:?}", e))?;
+
+    let db_path = path.join(".git").join("velgit").join("velgit.db");
+    let pool = DbPool::open(&db_path).await.map_err(|e| e.to_string())?;
+
+    let pdfs = scan_pdfs(path);
+    pool.insert_drawings(&pdfs).await.map_err(|e| e.to_string())?;
+
+    *state.repo_path.lock().unwrap() = Some(path.to_path_buf());
+    *state.db.lock().unwrap() = Some(pool);
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_drawings(state: State<'_, AppState>) -> Result<Vec<DrawingDto>, String> {
+    // ロックをスコープ内で解放してから await する
+    let pool_opt = {
+        let db = state.db.lock().unwrap();
+        db.as_ref().map(|p| DbPool(p.0.clone()))
+    };
+    let Some(pool) = pool_opt else {
+        return Ok(vec![]);
+    };
+    let rows = pool.list_drawings().await.map_err(|e| e.to_string())?;
+    Ok(rows
+        .into_iter()
+        .map(|(filename, added_at)| DrawingDto { filename, added_at })
+        .collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::tempdir;
+
+    #[test]
+    fn scan_pdfs_returns_pdf_files() {
+        let dir = tempdir().unwrap();
+        fs::write(dir.path().join("A-001_平面図.pdf"), b"").unwrap();
+        fs::write(dir.path().join("S-001_伏図.pdf"), b"").unwrap();
+        fs::write(dir.path().join("notes.txt"), b"").unwrap();
+
+        let result = scan_pdfs(dir.path());
+
+        assert_eq!(result.len(), 2);
+        assert!(result.contains(&"A-001_平面図.pdf".to_string()));
+        assert!(result.contains(&"S-001_伏図.pdf".to_string()));
+    }
 }

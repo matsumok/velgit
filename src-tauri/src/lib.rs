@@ -10,15 +10,29 @@ use std::sync::Mutex;
 use db::DbPool;
 
 pub struct AppState {
-    pub db: DbPool,
-    pub watched_paths: Mutex<Vec<PathBuf>>,
+    pub db: Mutex<Option<DbPool>>,
+    pub repo_path: Mutex<Option<PathBuf>>,
+}
+
+impl AppState {
+    pub fn new() -> Self {
+        AppState {
+            db: Mutex::new(None),
+            repo_path: Mutex::new(None),
+        }
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(AppState::new())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![commands::get_drawings])
+        .plugin(tauri_plugin_dialog::init())
+        .invoke_handler(tauri::generate_handler![
+            commands::init_working_folder,
+            commands::get_drawings,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
