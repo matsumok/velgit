@@ -7,7 +7,7 @@ use crate::AppState;
 pub struct DrawingDto {
     pub id: String,
     pub name: String,
-    pub path: String,
+    pub number: String,
 }
 
 #[tauri::command]
