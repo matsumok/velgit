@@ -16,7 +16,10 @@ impl DbPool {
             .max_connections(1)
             .connect_with(opts)
             .await?;
-        Self::apply_schema(&pool).await?;
+        sqlx::migrate!("./migrations")
+            .set_locking(false)
+            .run(&pool)
+            .await?;
         Ok(DbPool(pool))
     }
 
@@ -46,17 +49,6 @@ impl DbPool {
         Ok(rows)
     }
 
-    async fn apply_schema(pool: &SqlitePool) -> Result<(), sqlx::Error> {
-        sqlx::query(
-            "CREATE TABLE IF NOT EXISTS drawings (
-                filename TEXT PRIMARY KEY NOT NULL,
-                added_at  INTEGER NOT NULL
-            )",
-        )
-        .execute(pool)
-        .await?;
-        Ok(())
-    }
 }
 
 #[cfg(test)]
