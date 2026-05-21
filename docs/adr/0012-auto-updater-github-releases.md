@@ -1,0 +1,7 @@
+# 自動アップデートはTauri updater + GitHub Releasesで行う
+
+velgitの自動アップデート配信に、Tauriの組み込みupdater機能とGitHub Releasesを組み合わせて使用する。起動時に新バージョンを確認し、ユーザーに通知してバックグラウンドでダウンロード・再起動で適用する。専用のアップデートサーバーは不要で、GitHub Releasesに署名済みの成果物を置くだけで全ユーザーに配信できる。
+
+## Consequences
+
+GitHub Releasesへのアクセスにはインターネット接続が必要。完全なイントラネット環境では動作しないため、その場合は手動配布にフォールバックする。
