@@ -5,7 +5,7 @@ use tauri::State;
 
 use crate::{
     db::DbPool,
-    repository::{self, InitError},
+    repository::{self, ChangeKind, InitError},
     AppState,
 };
 
@@ -13,6 +13,13 @@ use crate::{
 pub struct DrawingDto {
     pub filename: String,
     pub added_at: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PendingChangeDto {
+    pub filename: String,
+    pub status: String,
 }
 
 pub fn scan_pdfs(path: &Path) -> Vec<String> {
@@ -80,6 +87,40 @@ pub async fn init_working_folder(
     *state.db.lock().unwrap() = Some(pool);
 
     Ok(())
+}
+
+#[tauri::command]
+pub fn get_pending_changes(state: State<'_, AppState>) -> Result<Vec<PendingChangeDto>, String> {
+    let repo_path = state.repo_path.lock().unwrap().clone();
+    let Some(path) = repo_path else {
+        return Ok(vec![]);
+    };
+    repository::pending_changes(&path)
+        .map_err(|e| e.to_string())
+        .map(|changes| {
+            changes
+                .into_iter()
+                .map(|c| PendingChangeDto {
+                    filename: c.filename,
+                    status: match c.status {
+                        ChangeKind::New => "new".to_string(),
+                        ChangeKind::Modified => "modified".to_string(),
+                        ChangeKind::Deleted => "deleted".to_string(),
+                    },
+                })
+                .collect()
+        })
+}
+
+#[tauri::command]
+pub fn commit_changes(message: String, state: State<'_, AppState>) -> Result<(), String> {
+    let repo_path = state.repo_path.lock().unwrap().clone();
+    let Some(path) = repo_path else {
+        return Err("ワーキングフォルダが選択されていません".to_string());
+    };
+    repository::commit(&path, &message, "velgit-user")
+        .map_err(|e| e.to_string())
+        .map(|_| ())
 }
 
 #[tauri::command]

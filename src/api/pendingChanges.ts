@@ -1,0 +1,31 @@
+import { invoke } from "@tauri-apps/api/core";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAppStore } from "../store/useAppStore";
+
+export type ChangeStatus = "new" | "modified" | "deleted";
+
+export interface PendingChange {
+  filename: string;
+  status: ChangeStatus;
+}
+
+export function useGetPendingChanges() {
+  const selectedProject = useAppStore((s) => s.selectedProject);
+  return useQuery<PendingChange[]>({
+    queryKey: ["pending_changes", selectedProject],
+    queryFn: () => invoke<PendingChange[]>("get_pending_changes"),
+    enabled: selectedProject !== null,
+  });
+}
+
+export function useCommitChanges() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (message: string) =>
+      invoke<void>("commit_changes", { message }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pending_changes"] });
+      queryClient.invalidateQueries({ queryKey: ["drawings"] });
+    },
+  });
+}

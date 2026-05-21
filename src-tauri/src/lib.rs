@@ -33,6 +33,8 @@ pub fn run() {
             commands::is_initialized,
             commands::init_working_folder,
             commands::get_drawings,
+            commands::get_pending_changes,
+            commands::commit_changes,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

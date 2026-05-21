@@ -6,6 +6,7 @@ import { cn } from "./lib/utils";
 import { ThreePaneLayout } from "./components/layout/ThreePaneLayout";
 import { useAppStore } from "./store/useAppStore";
 import { useGetDrawings } from "./api/drawings";
+import { CommitPanel } from "./components/commit/CommitPanel";
 
 function ProjectList() {
   const { selectedProject } = useAppStore();
@@ -111,7 +112,7 @@ function DrawingList() {
 function DrawingDetail() {
   return (
     <div className="p-4">
-      <p className="text-xs text-muted-foreground">詳細</p>
+      <CommitPanel />
     </div>
   );
 }
