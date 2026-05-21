@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "PowerShell(Stop-Process -Name \"node\" -Force -ErrorAction SilentlyContinue)",
-      "Bash(gh issue *)"
+      "Bash(gh issue *)",
+      "Bash(cargo search *)",
+      "PowerShell(cargo search git2 --limit 1 2>&1)"
     ]
   }
 }
