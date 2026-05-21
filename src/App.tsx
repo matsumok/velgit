@@ -1,6 +1,7 @@
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "./lib/utils";
 import { ThreePaneLayout } from "./components/layout/ThreePaneLayout";
 import { useAppStore } from "./store/useAppStore";
@@ -31,6 +32,7 @@ function DrawingList() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { data: drawings } = useGetDrawings();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (!selectedProject) return;
@@ -40,9 +42,9 @@ function DrawingList() {
           setSelectedProject(null);
           return;
         }
-        invoke("init_working_folder", { path: selectedProject }).catch(() =>
-          setSelectedProject(null),
-        );
+        invoke("init_working_folder", { path: selectedProject })
+          .then(() => queryClient.invalidateQueries({ queryKey: ["drawings"] }))
+          .catch(() => setSelectedProject(null));
       },
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
