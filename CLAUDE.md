@@ -1,3 +1,9 @@
+## Frontend conventions
+
+See `docs/frontend-conventions.md` for Tailwind CSS and shadcn/ui coding conventions.
+
+Key rules: no arbitrary values (`w-[...]`), CSS variables for colors, no `!` prefix, responsive via breakpoint prefixes, always use `cn()`. `src/components/ui/` is read-only — wrap, don't edit.
+
 ## Agent skills
 
 ### Issue tracker

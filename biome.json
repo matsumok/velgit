@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!.claude", "!src-tauri"]
+    "includes": ["**", "!.claude", "!src-tauri", "!src/components/ui/**"]
   },
   "formatter": {
     "enabled": true,
