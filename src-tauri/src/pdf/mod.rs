@@ -6,7 +6,7 @@ fn load_pdfium() -> Result<Pdfium, PdfiumError> {
         .map(Pdfium::new)
 }
 
-pub fn rasterize(data: &[u8], page: u32) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+pub fn rasterize_to_image(data: &[u8], page: u32) -> Result<image::RgbaImage, Box<dyn std::error::Error>> {
     let pdfium = load_pdfium()?;
     let doc = pdfium.load_pdf_from_byte_slice(data, None)?;
     let page = doc.pages().get(page as u16)?;
@@ -14,7 +14,12 @@ pub fn rasterize(data: &[u8], page: u32) -> Result<Vec<u8>, Box<dyn std::error::
         .set_target_width(2480)
         .set_maximum_height(3508);
     let bitmap = page.render_with_config(&config)?;
-    let img = bitmap.as_image();
+    let img = bitmap.as_image().into_rgba8();
+    Ok(img)
+}
+
+pub fn rasterize(data: &[u8], page: u32) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    let img = rasterize_to_image(data, page)?;
     let mut out = Vec::new();
     img.write_to(&mut std::io::Cursor::new(&mut out), image::ImageFormat::Png)?;
     Ok(out)

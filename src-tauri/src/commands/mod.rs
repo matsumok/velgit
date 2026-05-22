@@ -6,6 +6,7 @@ use uuid::Uuid;
 
 use crate::{
     db::DbPool,
+    diff,
     pdf,
     repository::{self, ChangeKind, CommitEntry, InitError},
     watcher::FileWatcher,
@@ -154,6 +155,84 @@ pub fn get_commit_history(filename: String, state: State<'_, AppState>) -> Resul
     repository::commit_history(&path, &filename)
         .map_err(|e| e.to_string())
         .map(|entries| entries.into_iter().map(CommitEntryDto::from).collect())
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GenerateDiffResult {
+    pub change_type: String,
+    pub url: Option<String>,
+}
+
+fn extract_pdf_blob(repo: &git2::Repository, oid_str: &str, filename: &str) -> Result<Vec<u8>, String> {
+    let oid = git2::Oid::from_str(oid_str).map_err(|e| e.to_string())?;
+    let commit = repo.find_commit(oid).map_err(|e| e.to_string())?;
+    let tree = commit.tree().map_err(|e| e.to_string())?;
+    let entry = tree
+        .get_name(filename)
+        .ok_or_else(|| format!("{filename} はこのコミットに存在しません"))?;
+    let blob = repo.find_blob(entry.id()).map_err(|e| e.to_string())?;
+    Ok(blob.content().to_vec())
+}
+
+#[tauri::command]
+pub fn generate_diff(
+    filename: String,
+    oid_a: String,
+    oid_b: String,
+    state: State<'_, AppState>,
+) -> Result<GenerateDiffResult, String> {
+    let repo_path = state.repo_path.lock().unwrap().clone();
+    let Some(path) = repo_path else {
+        return Err("ワーキングフォルダが選択されていません".to_string());
+    };
+
+    let repo = git2::Repository::open(&path).map_err(|e| e.to_string())?;
+
+    // blob OID が同一ならラスタライズをスキップ
+    let oid_a_parsed = git2::Oid::from_str(&oid_a).map_err(|e| e.to_string())?;
+    let oid_b_parsed = git2::Oid::from_str(&oid_b).map_err(|e| e.to_string())?;
+    let commit_a = repo.find_commit(oid_a_parsed).map_err(|e| e.to_string())?;
+    let commit_b = repo.find_commit(oid_b_parsed).map_err(|e| e.to_string())?;
+    let blob_a_id = commit_a.tree().ok()
+        .and_then(|t| t.get_name(&filename).map(|e| e.id()));
+    let blob_b_id = commit_b.tree().ok()
+        .and_then(|t| t.get_name(&filename).map(|e| e.id()));
+
+    if blob_a_id.is_some() && blob_a_id == blob_b_id {
+        return Ok(GenerateDiffResult { change_type: "none".to_string(), url: None });
+    }
+
+    let pdf_a = extract_pdf_blob(&repo, &oid_a, &filename)?;
+    let pdf_b = extract_pdf_blob(&repo, &oid_b, &filename)?;
+
+    let rgba_a = pdf::rasterize_to_image(&pdf_a, 0).map_err(|e| e.to_string())?;
+    let rgba_b = pdf::rasterize_to_image(&pdf_b, 0).map_err(|e| e.to_string())?;
+
+    let result = diff::diff(&rgba_a, &rgba_b);
+
+    let change_type = match result.change_type {
+        diff::ChangeType::None => "none",
+        diff::ChangeType::Minor => "minor",
+        diff::ChangeType::Meaningful => "meaningful",
+    }.to_string();
+
+    if result.change_type == diff::ChangeType::None {
+        return Ok(GenerateDiffResult { change_type, url: None });
+    }
+
+    let overlay = result.overlay.unwrap();
+    let mut png_bytes = Vec::new();
+    overlay
+        .write_to(&mut std::io::Cursor::new(&mut png_bytes), image::ImageFormat::Png)
+        .map_err(|e| e.to_string())?;
+
+    let id = Uuid::new_v4().to_string();
+    let tmp_path = std::env::temp_dir().join(format!("velgit_diff_{id}.png"));
+    std::fs::write(&tmp_path, &png_bytes).map_err(|e| e.to_string())?;
+    state.temp_images.lock().unwrap().insert(id.clone(), tmp_path);
+
+    Ok(GenerateDiffResult { change_type, url: Some(format!("velgit://image/{id}")) })
 }
 
 #[tauri::command]

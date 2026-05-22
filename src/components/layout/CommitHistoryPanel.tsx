@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useGetCommitHistory } from "../../api/commitHistory";
-import { useGetPdfImage } from "../../api/pdfImage";
+import { useGenerateDiff } from "../../api/generateDiff";
 import { useAppStore } from "../../store/useAppStore";
 import { cn } from "../../lib/utils";
 import { DiffView } from "./DiffView";
@@ -15,16 +15,24 @@ function formatTimestamp(ts: number): string {
   });
 }
 
+const CHANGE_TYPE_LABEL: Record<string, string> = {
+  none: "変更なし",
+  minor: "微小変更",
+  meaningful: "意味的変更",
+};
+
 export function CommitHistoryPanel() {
   const selectedDrawing = useAppStore((s) => s.selectedDrawing);
   const { data: entries, isLoading } = useGetCommitHistory();
   const {
-    mutate: loadImage,
+    mutate: generateDiff,
     isPending,
     error,
-    data: imageUrl,
-  } = useGetPdfImage();
-  const [selectedOid, setSelectedOid] = useState<string | null>(null);
+    data: diffResult,
+  } = useGenerateDiff();
+  const [selectedOids, setSelectedOids] = useState<[string, string] | null>(
+    null,
+  );
 
   if (!selectedDrawing) {
     return (
@@ -54,20 +62,33 @@ export function CommitHistoryPanel() {
   }
 
   function handleSelectCommit(oid: string) {
-    setSelectedOid(oid);
-    loadImage({ filename: selectedDrawing!, oid });
+    if (!selectedOids) {
+      setSelectedOids([oid, oid]);
+      return;
+    }
+    const [oidA] = selectedOids;
+    const pair: [string, string] = [oidA, oid];
+    setSelectedOids(pair);
+    generateDiff({ filename: selectedDrawing!, oidA: pair[0], oidB: pair[1] });
+  }
+
+  function isSelected(oid: string) {
+    return selectedOids?.[0] === oid || selectedOids?.[1] === oid;
   }
 
   return (
     <div className="p-4">
-      <p className="text-xs text-muted-foreground mb-3">{selectedDrawing}</p>
+      <p className="text-xs text-muted-foreground mb-1">{selectedDrawing}</p>
+      <p className="text-xs text-muted-foreground mb-3">
+        1クリック目: 旧版を選択 / 2クリック目: 新版を選択して差分を表示
+      </p>
       <ul className="space-y-2 mb-4">
         {entries.map((entry) => (
           <li
             key={entry.oid}
             className={cn(
               "rounded border p-3 text-sm cursor-pointer hover:bg-muted transition-colors",
-              selectedOid === entry.oid
+              isSelected(entry.oid)
                 ? "border-primary bg-primary/5"
                 : "border-border",
             )}
@@ -80,8 +101,13 @@ export function CommitHistoryPanel() {
           </li>
         ))}
       </ul>
+      {diffResult && (
+        <p className="text-xs text-muted-foreground mb-2">
+          {CHANGE_TYPE_LABEL[diffResult.changeType] ?? diffResult.changeType}
+        </p>
+      )}
       <DiffView
-        imageUrl={imageUrl ?? null}
+        imageUrl={diffResult?.url ?? null}
         isLoading={isPending}
         error={error ? String(error) : null}
       />
