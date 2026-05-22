@@ -11,6 +11,7 @@ import { CommitPanel } from "./components/commit/CommitPanel";
 import { CommitHistoryPanel } from "./components/layout/CommitHistoryPanel";
 import { UsernameGate } from "./components/UsernameGate";
 import { UsernameSection } from "./components/UsernameSection";
+import { ReleasePanel } from "./components/ReleasePanel";
 
 function ProjectList() {
   const { selectedProject } = useAppStore();
@@ -123,6 +124,7 @@ function DrawingDetail() {
     <div className="h-full overflow-y-auto">
       <CommitPanel />
       <CommitHistoryPanel />
+      <ReleasePanel />
     </div>
   );
 }
