@@ -21,7 +21,13 @@ const CHANGE_BADGE: Record<ChangeType, string | null> = {
   meaningful: "M",
 };
 
-function ChangeBadge({ changeType }: { changeType: ChangeType }) {
+function ChangeBadge({
+  changeType,
+  onClick,
+}: {
+  changeType: ChangeType;
+  onClick?: (e: React.MouseEvent) => void;
+}) {
   const label = CHANGE_BADGE[changeType];
   if (!label) return null;
   return (
@@ -31,7 +37,9 @@ function ChangeBadge({ changeType }: { changeType: ChangeType }) {
         changeType === "meaningful"
           ? "bg-destructive/15 text-destructive"
           : "bg-muted-foreground/15 text-muted-foreground",
+        onClick && "cursor-pointer hover:opacity-70",
       )}
+      onClick={onClick}
     >
       {label}
     </span>
@@ -42,11 +50,20 @@ function PendingChangeItem({
   change,
   onSelect,
   isSelected,
+  isOverridden,
+  onOverride,
 }: {
   change: PendingChange;
   onSelect: (c: PendingChange) => void;
   isSelected: boolean;
+  isOverridden: boolean;
+  onOverride: (filename: string) => void;
 }) {
+  const effectiveType: ChangeType = isOverridden
+    ? "meaningful"
+    : change.changeType;
+  const canOverride = change.changeType === "minor" && !isOverridden;
+
   return (
     <li
       className={cn(
@@ -56,7 +73,17 @@ function PendingChangeItem({
       onClick={() => onSelect(change)}
     >
       <span className="flex-1 truncate">{change.filename}</span>
-      <ChangeBadge changeType={change.changeType} />
+      <ChangeBadge
+        changeType={effectiveType}
+        onClick={
+          canOverride
+            ? (e) => {
+                e.stopPropagation();
+                onOverride(change.filename);
+              }
+            : undefined
+        }
+      />
     </li>
   );
 }
@@ -66,11 +93,15 @@ function ChangeGroup({
   changes,
   onSelect,
   selectedFilename,
+  overrides,
+  onOverride,
 }: {
   status: string;
   changes: PendingChange[];
   onSelect: (c: PendingChange) => void;
   selectedFilename: string | null;
+  overrides: Set<string>;
+  onOverride: (filename: string) => void;
 }) {
   if (changes.length === 0) return null;
   return (
@@ -85,6 +116,8 @@ function ChangeGroup({
             change={c}
             onSelect={onSelect}
             isSelected={selectedFilename === c.filename}
+            isOverridden={overrides.has(c.filename)}
+            onOverride={onOverride}
           />
         ))}
       </ul>
@@ -99,6 +132,7 @@ export function CommitPanel() {
   const [selectedChange, setSelectedChange] = useState<PendingChange | null>(
     null,
   );
+  const [overrides, setOverrides] = useState<Set<string>>(new Set());
   const {
     mutate: generateDiff,
     isPending: isDiffLoading,
@@ -114,14 +148,26 @@ export function CommitPanel() {
   const byStatus = (status: string) =>
     changes.filter((c) => c.status === status);
 
+  function handleOverride(filename: string) {
+    setOverrides((prev) => new Set([...prev, filename]));
+  }
+
   function handleCommit() {
     if (!message.trim()) return;
-    commitChanges(message, { onSuccess: () => setMessage("") });
+    commitChanges(
+      { message, overrides: [...overrides] },
+      {
+        onSuccess: () => {
+          setMessage("");
+          setOverrides(new Set());
+        },
+      },
+    );
   }
 
   function handleSelectChange(c: PendingChange) {
     setSelectedChange(c);
-    if (!headOid) return; // 初回コミット前
+    if (!headOid) return;
     generateDiff({ filename: c.filename, oidA: headOid });
   }
 
@@ -133,18 +179,24 @@ export function CommitPanel() {
         changes={byStatus("new")}
         onSelect={handleSelectChange}
         selectedFilename={selectedChange?.filename ?? null}
+        overrides={overrides}
+        onOverride={handleOverride}
       />
       <ChangeGroup
         status="modified"
         changes={byStatus("modified")}
         onSelect={handleSelectChange}
         selectedFilename={selectedChange?.filename ?? null}
+        overrides={overrides}
+        onOverride={handleOverride}
       />
       <ChangeGroup
         status="deleted"
         changes={byStatus("deleted")}
         onSelect={handleSelectChange}
         selectedFilename={selectedChange?.filename ?? null}
+        overrides={overrides}
+        onOverride={handleOverride}
       />
       <DiffView
         imageUrl={diffResult?.url ?? null}

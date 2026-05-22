@@ -7,6 +7,12 @@ use sqlx::{
 
 pub struct DbPool(pub SqlitePool);
 
+pub struct CommitFileRecord {
+    pub filename: String,
+    pub change_type: String,
+    pub overridden: bool,
+}
+
 impl DbPool {
     pub async fn open(path: &Path) -> Result<Self, sqlx::Error> {
         let opts = SqliteConnectOptions::new()
@@ -34,6 +40,25 @@ impl DbPool {
             )
             .bind(filename)
             .bind(now)
+            .execute(&self.0)
+            .await?;
+        }
+        Ok(())
+    }
+
+    pub async fn insert_commit_files(
+        &self,
+        commit_oid: &str,
+        files: &[CommitFileRecord],
+    ) -> Result<(), sqlx::Error> {
+        for f in files {
+            sqlx::query(
+                "INSERT OR IGNORE INTO commit_files (commit_oid, filename, change_type, change_type_overridden) VALUES (?, ?, ?, ?)",
+            )
+            .bind(commit_oid)
+            .bind(&f.filename)
+            .bind(&f.change_type)
+            .bind(f.overridden as i32)
             .execute(&self.0)
             .await?;
         }
@@ -112,6 +137,53 @@ mod tests {
         let pool = DbPool::open(&db_path).await.unwrap();
         let row: (i64,) = sqlx::query_as(
             "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='drawings'",
+        )
+        .fetch_one(&pool.0)
+        .await
+        .unwrap();
+        assert_eq!(row.0, 1);
+    }
+
+    #[tokio::test]
+    async fn insert_commit_files_stores_records() {
+        let dir = tempdir().unwrap();
+        let pool = DbPool::open(&dir.path().join("velgit.db")).await.unwrap();
+
+        let files = vec![
+            CommitFileRecord { filename: "A-001.pdf".to_string(), change_type: "meaningful".to_string(), overridden: false },
+            CommitFileRecord { filename: "S-001.pdf".to_string(), change_type: "minor".to_string(), overridden: false },
+        ];
+        pool.insert_commit_files("abc123", &files).await.unwrap();
+
+        let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM commit_files WHERE commit_oid = 'abc123'")
+            .fetch_one(&pool.0).await.unwrap();
+        assert_eq!(row.0, 2);
+    }
+
+    #[tokio::test]
+    async fn insert_commit_files_records_override_flag() {
+        let dir = tempdir().unwrap();
+        let pool = DbPool::open(&dir.path().join("velgit.db")).await.unwrap();
+
+        let files = vec![
+            CommitFileRecord { filename: "A-001.pdf".to_string(), change_type: "meaningful".to_string(), overridden: true },
+        ];
+        pool.insert_commit_files("abc123", &files).await.unwrap();
+
+        let row: (i64,) = sqlx::query_as(
+            "SELECT change_type_overridden FROM commit_files WHERE commit_oid = 'abc123' AND filename = 'A-001.pdf'",
+        )
+        .fetch_one(&pool.0).await.unwrap();
+        assert_eq!(row.0, 1);
+    }
+
+    #[tokio::test]
+    async fn open_creates_commit_files_table() {
+        let dir = tempdir().unwrap();
+        let db_path = dir.path().join("velgit.db");
+        let pool = DbPool::open(&db_path).await.unwrap();
+        let row: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='commit_files'",
         )
         .fetch_one(&pool.0)
         .await

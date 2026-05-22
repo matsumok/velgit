@@ -5,7 +5,7 @@ use tauri::State;
 use uuid::Uuid;
 
 use crate::{
-    db::DbPool,
+    db::{CommitFileRecord, DbPool},
     diff,
     pdf,
     repository::{self, ChangeKind, CommitEntry, InitError},
@@ -145,14 +145,47 @@ pub fn get_pending_changes(state: State<'_, AppState>) -> Result<Vec<PendingChan
 }
 
 #[tauri::command]
-pub fn commit_changes(message: String, state: State<'_, AppState>) -> Result<(), String> {
+pub async fn commit_changes(
+    message: String,
+    overrides: Vec<String>,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
     let repo_path = state.repo_path.lock().unwrap().clone();
     let Some(path) = repo_path else {
         return Err("ワーキングフォルダが選択されていません".to_string());
     };
-    repository::commit(&path, &message, "velgit-user")
-        .map_err(|e| e.to_string())
-        .map(|_| ())
+
+    let pending = repository::pending_changes(&path).map_err(|e| e.to_string())?;
+
+    let oid = repository::commit(&path, &message, "velgit-user")
+        .map_err(|e| e.to_string())?;
+
+    let pool = state.db.lock().unwrap().as_ref().map(|db| db.0.clone());
+    if let Some(pool) = pool {
+        let records: Vec<CommitFileRecord> = pending
+            .iter()
+            .map(|c| {
+                let overridden = overrides.contains(&c.filename);
+                let change_type = if overridden {
+                    "meaningful".to_string()
+                } else {
+                    match repository::classify_change(&path, &c.filename, &c.status) {
+                        repository::ChangeType::None => "none",
+                        repository::ChangeType::Minor => "minor",
+                        repository::ChangeType::Meaningful => "meaningful",
+                    }
+                    .to_string()
+                };
+                CommitFileRecord { filename: c.filename.clone(), change_type, overridden }
+            })
+            .collect();
+        let db = DbPool(pool);
+        db.insert_commit_files(&oid.to_string(), &records)
+            .await
+            .map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
 }
 
 #[tauri::command]

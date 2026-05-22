@@ -23,8 +23,13 @@ export function useGetPendingChanges() {
 export function useCommitChanges() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (message: string) =>
-      invoke<void>("commit_changes", { message }),
+    mutationFn: ({
+      message,
+      overrides,
+    }: {
+      message: string;
+      overrides: string[];
+    }) => invoke<void>("commit_changes", { message, overrides }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pending_changes"] });
       queryClient.invalidateQueries({ queryKey: ["drawings"] });
