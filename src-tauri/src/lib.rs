@@ -68,6 +68,22 @@ pub fn run() {
             commands::get_pdf_image,
             commands::generate_diff,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            if let tauri::RunEvent::Exit = event {
+                use tauri::Manager;
+                let state = app_handle.state::<AppState>();
+                let paths: Vec<_> = state
+                    .temp_images
+                    .lock()
+                    .unwrap()
+                    .values()
+                    .cloned()
+                    .collect();
+                for path in paths {
+                    let _ = std::fs::remove_file(path);
+                }
+            }
+        });
 }
