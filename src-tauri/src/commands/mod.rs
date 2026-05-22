@@ -231,7 +231,7 @@ pub async fn generate_bind_pdf(
     let mut filenames = releases::get_drawings(&pool, release_id)
         .await
         .map_err(|e| e.to_string())?;
-    filenames.sort_by(|a, b| b.cmp(a));
+    filenames.sort();
 
     let repo = git2::Repository::open(&path).map_err(|e| e.to_string())?;
     let mut pdf_bytes_list: Vec<Vec<u8>> = Vec::new();
