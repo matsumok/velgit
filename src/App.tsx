@@ -121,10 +121,11 @@ function DrawingList() {
 }
 
 function DrawingDetail() {
+  const selectedDrawing = useAppStore((s) => s.selectedDrawing);
   return (
     <div className="h-full overflow-y-auto">
       <CommitPanel />
-      <CommitHistoryPanel />
+      <CommitHistoryPanel key={selectedDrawing ?? ""} />
       <ReleasePanel />
       <ReleaseHistoryPanel />
     </div>
