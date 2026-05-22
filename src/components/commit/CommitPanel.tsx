@@ -8,6 +8,7 @@ import type { PendingChange, ChangeType } from "../../api/pendingChanges";
 import { useGenerateDiff } from "../../api/generateDiff";
 import { DiffView } from "../layout/DiffView";
 import { useGetCommitHistory } from "../../api/commitHistory";
+import { useAppStore } from "../../store/useAppStore";
 
 const STATUS_LABEL: Record<string, string> = {
   new: "新規",
@@ -128,6 +129,7 @@ function ChangeGroup({
 export function CommitPanel() {
   const { data: changes } = useGetPendingChanges();
   const { mutate: commitChanges, isPending, error } = useCommitChanges();
+  const username = useAppStore((s) => s.username);
   const [message, setMessage] = useState("");
   const [selectedChange, setSelectedChange] = useState<PendingChange | null>(
     null,
@@ -153,9 +155,9 @@ export function CommitPanel() {
   }
 
   function handleCommit() {
-    if (!message.trim()) return;
+    if (!message.trim() || !username) return;
     commitChanges(
-      { message, overrides: [...overrides] },
+      { message, overrides: [...overrides], createdBy: username },
       {
         onSuccess: () => {
           setMessage("");
@@ -214,10 +216,11 @@ export function CommitPanel() {
       <button
         type="button"
         onClick={handleCommit}
-        disabled={!message.trim() || isPending}
+        disabled={!message.trim() || isPending || !username}
         className={cn(
           "px-4 py-2 rounded text-sm bg-primary text-primary-foreground",
-          (!message.trim() || isPending) && "opacity-50 cursor-not-allowed",
+          (!message.trim() || isPending || !username) &&
+            "opacity-50 cursor-not-allowed",
         )}
       >
         {isPending ? "コミット中..." : "コミット"}

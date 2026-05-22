@@ -10,6 +10,98 @@ import { useGetDrawings } from "./api/drawings";
 import { CommitPanel } from "./components/commit/CommitPanel";
 import { CommitHistoryPanel } from "./components/layout/CommitHistoryPanel";
 
+function UsernameGate({ children }: { children: React.ReactNode }) {
+  const { username, setUsername } = useAppStore();
+  const [input, setInput] = useState("");
+
+  if (username !== null) return <>{children}</>;
+
+  return (
+    <div className="fixed inset-0 flex items-center justify-center bg-background z-50">
+      <div className="flex flex-col gap-4 p-6 rounded-lg border bg-card w-80 shadow-lg">
+        <p className="text-sm font-medium">ユーザー名を入力してください</p>
+        <p className="text-xs text-muted-foreground">
+          コミットと図渡しに記録されます
+        </p>
+        <input
+          type="text"
+          className="w-full rounded border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+          placeholder="例: 山田太郎"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && input.trim()) setUsername(input.trim());
+          }}
+          autoFocus
+        />
+        <button
+          type="button"
+          disabled={!input.trim()}
+          onClick={() => setUsername(input.trim())}
+          className={cn(
+            "px-4 py-2 rounded text-sm bg-primary text-primary-foreground",
+            !input.trim() && "opacity-50 cursor-not-allowed",
+          )}
+        >
+          決定
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function UsernameSection() {
+  const { username, setUsername } = useAppStore();
+  const [editing, setEditing] = useState(false);
+  const [input, setInput] = useState(username ?? "");
+
+  function handleSave() {
+    if (!input.trim()) return;
+    setUsername(input.trim());
+    setEditing(false);
+  }
+
+  return (
+    <div className="px-4 pt-4 pb-2">
+      <p className="text-xs text-muted-foreground mb-1">ユーザー名</p>
+      {editing ? (
+        <div className="flex gap-1">
+          <input
+            type="text"
+            className="flex-1 min-w-0 rounded border border-input bg-background px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleSave();
+              if (e.key === "Escape") setEditing(false);
+            }}
+            autoFocus
+          />
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={!input.trim()}
+            className="px-2 py-1 rounded text-xs bg-primary text-primary-foreground disabled:opacity-50"
+          >
+            保存
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => {
+            setInput(username ?? "");
+            setEditing(true);
+          }}
+          className="text-sm px-2 py-1 rounded hover:bg-muted w-full text-left truncate"
+        >
+          {username}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function ProjectList() {
   const { selectedProject } = useAppStore();
   const folderName = selectedProject
@@ -17,15 +109,18 @@ function ProjectList() {
     : null;
 
   return (
-    <div className="p-4">
-      <p className="text-xs text-muted-foreground mb-2">物件</p>
-      {folderName ? (
-        <div className="px-3 py-2 rounded text-sm bg-primary text-primary-foreground">
-          {folderName}
-        </div>
-      ) : (
-        <p className="text-sm text-muted-foreground">未選択</p>
-      )}
+    <div>
+      <UsernameSection />
+      <div className="p-4 pt-2">
+        <p className="text-xs text-muted-foreground mb-2">物件</p>
+        {folderName ? (
+          <div className="px-3 py-2 rounded text-sm bg-primary text-primary-foreground">
+            {folderName}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">未選択</p>
+        )}
+      </div>
     </div>
   );
 }
@@ -152,20 +247,22 @@ function App() {
   usePdfChangedListener();
   const isPolling = useWatcherState();
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden">
-      <div className="flex-1 overflow-hidden">
-        <ThreePaneLayout
-          left={<ProjectList />}
-          center={<DrawingList />}
-          right={<DrawingDetail />}
-        />
-      </div>
-      {isPolling && (
-        <div className="shrink-0 border-t px-3 py-1 text-xs text-muted-foreground bg-muted">
-          ポーリングモードで監視中（ネイティブイベント利用不可）
+    <UsernameGate>
+      <div className="flex flex-col h-screen w-screen overflow-hidden">
+        <div className="flex-1 overflow-hidden">
+          <ThreePaneLayout
+            left={<ProjectList />}
+            center={<DrawingList />}
+            right={<DrawingDetail />}
+          />
         </div>
-      )}
-    </div>
+        {isPolling && (
+          <div className="shrink-0 border-t px-3 py-1 text-xs text-muted-foreground bg-muted">
+            ポーリングモードで監視中（ネイティブイベント利用不可）
+          </div>
+        )}
+      </div>
+    </UsernameGate>
   );
 }
 

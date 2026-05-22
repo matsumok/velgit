@@ -355,6 +355,19 @@ mod tests {
     }
 
     #[test]
+    fn commit_history_records_author() {
+        let dir = tempdir().unwrap();
+        make_repo(dir.path());
+        fs::write(dir.path().join("A-001_平面図.pdf"), b"v1").unwrap();
+
+        commit(dir.path(), "初回コミット", "山田太郎").unwrap();
+
+        let history = commit_history(dir.path(), "A-001_平面図.pdf").unwrap();
+
+        assert_eq!(history[0].author, "山田太郎");
+    }
+
+    #[test]
     fn commit_history_returns_empty_for_file_never_committed() {
         let dir = tempdir().unwrap();
         make_repo(dir.path());

@@ -148,6 +148,7 @@ pub fn get_pending_changes(state: State<'_, AppState>) -> Result<Vec<PendingChan
 pub async fn commit_changes(
     message: String,
     overrides: Vec<String>,
+    created_by: String,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     let repo_path = state.repo_path.lock().unwrap().clone();
@@ -157,7 +158,7 @@ pub async fn commit_changes(
 
     let pending = repository::pending_changes(&path).map_err(|e| e.to_string())?;
 
-    let oid = repository::commit(&path, &message, "velgit-user")
+    let oid = repository::commit(&path, &message, &created_by)
         .map_err(|e| e.to_string())?;
 
     let pool = state.db.lock().unwrap().as_ref().map(|db| db.0.clone());

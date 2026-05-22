@@ -26,10 +26,12 @@ export function useCommitChanges() {
     mutationFn: ({
       message,
       overrides,
+      createdBy,
     }: {
       message: string;
       overrides: string[];
-    }) => invoke<void>("commit_changes", { message, overrides }),
+      createdBy: string;
+    }) => invoke<void>("commit_changes", { message, overrides, createdBy }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pending_changes"] });
       queryClient.invalidateQueries({ queryKey: ["drawings"] });
