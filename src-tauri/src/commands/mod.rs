@@ -2,9 +2,11 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 use tauri::State;
+use uuid::Uuid;
 
 use crate::{
     db::DbPool,
+    pdf,
     repository::{self, ChangeKind, CommitEntry, InitError},
     watcher::FileWatcher,
     AppState,
@@ -152,6 +154,45 @@ pub fn get_commit_history(filename: String, state: State<'_, AppState>) -> Resul
     repository::commit_history(&path, &filename)
         .map_err(|e| e.to_string())
         .map(|entries| entries.into_iter().map(CommitEntryDto::from).collect())
+}
+
+#[tauri::command]
+pub fn get_pdf_image(
+    filename: String,
+    oid: String,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    let repo_path = state.repo_path.lock().unwrap().clone();
+    let Some(path) = repo_path else {
+        return Err("ワーキングフォルダが選択されていません".to_string());
+    };
+
+    let repo = git2::Repository::open(&path).map_err(|e| e.to_string())?;
+    let commit = repo
+        .find_commit(git2::Oid::from_str(&oid).map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())?;
+    let tree = commit.tree().map_err(|e| e.to_string())?;
+    let entry = tree
+        .get_name(&filename)
+        .ok_or_else(|| format!("{filename} はこのコミットに存在しません"))?;
+    let blob = repo
+        .find_blob(entry.id())
+        .map_err(|e| e.to_string())?;
+    let pdf_bytes = blob.content();
+
+    let png_bytes = pdf::rasterize(pdf_bytes, 0).map_err(|e| e.to_string())?;
+
+    let id = Uuid::new_v4().to_string();
+    let tmp_path = std::env::temp_dir().join(format!("velgit_img_{id}.png"));
+    std::fs::write(&tmp_path, &png_bytes).map_err(|e| e.to_string())?;
+
+    state
+        .temp_images
+        .lock()
+        .unwrap()
+        .insert(id.clone(), tmp_path);
+
+    Ok(format!("velgit://image/{id}"))
 }
 
 #[tauri::command]

@@ -1,5 +1,9 @@
+import { useState } from "react";
 import { useGetCommitHistory } from "../../api/commitHistory";
+import { useGetPdfImage } from "../../api/pdfImage";
 import { useAppStore } from "../../store/useAppStore";
+import { cn } from "../../lib/utils";
+import { DiffView } from "./DiffView";
 
 function formatTimestamp(ts: number): string {
   return new Date(ts * 1000).toLocaleString("ja-JP", {
@@ -14,6 +18,13 @@ function formatTimestamp(ts: number): string {
 export function CommitHistoryPanel() {
   const selectedDrawing = useAppStore((s) => s.selectedDrawing);
   const { data: entries, isLoading } = useGetCommitHistory();
+  const {
+    mutate: loadImage,
+    isPending,
+    error,
+    data: imageUrl,
+  } = useGetPdfImage();
+  const [selectedOid, setSelectedOid] = useState<string | null>(null);
 
   if (!selectedDrawing) {
     return (
@@ -42,14 +53,25 @@ export function CommitHistoryPanel() {
     );
   }
 
+  function handleSelectCommit(oid: string) {
+    setSelectedOid(oid);
+    loadImage({ filename: selectedDrawing!, oid });
+  }
+
   return (
     <div className="p-4">
       <p className="text-xs text-muted-foreground mb-3">{selectedDrawing}</p>
-      <ul className="space-y-2">
+      <ul className="space-y-2 mb-4">
         {entries.map((entry) => (
           <li
             key={entry.oid}
-            className="rounded border border-border p-3 text-sm"
+            className={cn(
+              "rounded border p-3 text-sm cursor-pointer hover:bg-muted transition-colors",
+              selectedOid === entry.oid
+                ? "border-primary bg-primary/5"
+                : "border-border",
+            )}
+            onClick={() => handleSelectCommit(entry.oid)}
           >
             <p className="font-medium">{entry.message}</p>
             <p className="text-xs text-muted-foreground mt-1">
@@ -58,6 +80,11 @@ export function CommitHistoryPanel() {
           </li>
         ))}
       </ul>
+      <DiffView
+        imageUrl={imageUrl ?? null}
+        isLoading={isPending}
+        error={error ? String(error) : null}
+      />
     </div>
   );
 }

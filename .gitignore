@@ -15,6 +15,11 @@ dist-ssr
 # Claude Code local settings
 .claude/settings.local.json
 
+# Native libraries bundled at dev time (obtain from pdfium-binaries releases)
+src-tauri/pdfium.dll
+src-tauri/libpdfium.so
+src-tauri/libpdfium.dylib
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

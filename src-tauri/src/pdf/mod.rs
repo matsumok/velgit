@@ -1,3 +1,55 @@
-pub fn rasterize(_data: &[u8], _page: u32) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-    todo!()
+use pdfium_render::prelude::*;
+
+fn load_pdfium() -> Result<Pdfium, PdfiumError> {
+    Pdfium::bind_to_library(Pdfium::pdfium_platform_library_name_at_path("./"))
+        .or_else(|_| Pdfium::bind_to_system_library())
+        .map(Pdfium::new)
+}
+
+pub fn rasterize(data: &[u8], page: u32) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    let pdfium = load_pdfium()?;
+    let doc = pdfium.load_pdf_from_byte_slice(data, None)?;
+    let page = doc.pages().get(page as u16)?;
+    let config = PdfRenderConfig::new()
+        .set_target_width(2480)
+        .set_maximum_height(3508);
+    let bitmap = page.render_with_config(&config)?;
+    let img = bitmap.as_image();
+    let mut out = Vec::new();
+    img.write_to(&mut std::io::Cursor::new(&mut out), image::ImageFormat::Png)?;
+    Ok(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Minimal valid PDF 1.4 with one empty A4 page
+    const MINIMAL_PDF: &[u8] = b"%PDF-1.4\n\
+        1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n\
+        2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n\
+        3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] >>\nendobj\n\
+        xref\n0 4\n\
+        0000000000 65535 f \n\
+        0000000009 00000 n \n\
+        0000000058 00000 n \n\
+        0000000115 00000 n \n\
+        trailer\n<< /Size 4 /Root 1 0 R >>\n\
+        startxref\n190\n%%EOF";
+
+    #[test]
+    fn rasterize_returns_error_for_invalid_data() {
+        let result = rasterize(b"this is not a pdf", 0);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn rasterize_returns_png_bytes_for_valid_pdf() {
+        let result = rasterize(MINIMAL_PDF, 0);
+        assert!(result.is_ok(), "rasterize failed: {:?}", result.err());
+        let bytes = result.unwrap();
+        assert!(!bytes.is_empty());
+        // PNG magic bytes: \x89PNG
+        assert_eq!(&bytes[..4], b"\x89PNG", "output is not PNG");
+    }
 }
