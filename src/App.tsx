@@ -12,6 +12,7 @@ import { CommitHistoryPanel } from "./components/layout/CommitHistoryPanel";
 import { UsernameGate } from "./components/UsernameGate";
 import { UsernameSection } from "./components/UsernameSection";
 import { ReleasePanel } from "./components/ReleasePanel";
+import { ReleaseHistoryPanel } from "./components/ReleaseHistoryPanel";
 
 function ProjectList() {
   const { selectedProject } = useAppStore();
@@ -125,6 +126,7 @@ function DrawingDetail() {
       <CommitPanel />
       <CommitHistoryPanel />
       <ReleasePanel />
+      <ReleaseHistoryPanel />
     </div>
   );
 }

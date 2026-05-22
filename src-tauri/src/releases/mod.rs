@@ -9,6 +9,7 @@ pub struct ReleaseEntry {
     pub commit_oid: String,
     pub created_at: i64,
     pub created_by: String,
+    pub drawing_count: i64,
 }
 
 pub async fn create(
@@ -54,21 +55,20 @@ pub async fn create(
 }
 
 pub async fn list(pool: &SqlitePool) -> Result<Vec<ReleaseEntry>, sqlx::Error> {
-    let rows = sqlx::query_as::<_, (i64, String, String, Option<String>, String, i64, String)>(
-        "SELECT id, name, kind, recipient, commit_oid, created_at, created_by FROM releases ORDER BY created_at DESC, id DESC",
+    let rows = sqlx::query_as::<_, (i64, String, String, Option<String>, String, i64, String, i64)>(
+        "SELECT r.id, r.name, r.kind, r.recipient, r.commit_oid, r.created_at, r.created_by, \
+         COUNT(rd.filename) as drawing_count \
+         FROM releases r \
+         LEFT JOIN release_drawings rd ON rd.release_id = r.id \
+         GROUP BY r.id \
+         ORDER BY r.created_at DESC, r.id DESC",
     )
     .fetch_all(pool)
     .await?;
     Ok(rows
         .into_iter()
-        .map(|(id, name, kind, recipient, commit_oid, created_at, created_by)| ReleaseEntry {
-            id,
-            name,
-            kind,
-            recipient,
-            commit_oid,
-            created_at,
-            created_by,
+        .map(|(id, name, kind, recipient, commit_oid, created_at, created_by, drawing_count)| {
+            ReleaseEntry { id, name, kind, recipient, commit_oid, created_at, created_by, drawing_count }
         })
         .collect())
 }

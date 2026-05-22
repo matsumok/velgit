@@ -348,6 +348,7 @@ pub struct ReleaseEntryDto {
     pub commit_oid: String,
     pub created_at: i64,
     pub created_by: String,
+    pub drawing_count: i64,
 }
 
 #[tauri::command]
@@ -408,6 +409,7 @@ pub async fn list_releases(state: State<'_, AppState>) -> Result<Vec<ReleaseEntr
                     commit_oid: e.commit_oid,
                     created_at: e.created_at,
                     created_by: e.created_by,
+                    drawing_count: e.drawing_count,
                 })
                 .collect()
         })
