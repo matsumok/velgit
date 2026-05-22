@@ -190,4 +190,32 @@ mod tests {
         .unwrap();
         assert_eq!(row.0, 1);
     }
+
+    #[tokio::test]
+    async fn open_creates_releases_table() {
+        let dir = tempdir().unwrap();
+        let db_path = dir.path().join("velgit.db");
+        let pool = DbPool::open(&db_path).await.unwrap();
+        let row: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='releases'",
+        )
+        .fetch_one(&pool.0)
+        .await
+        .unwrap();
+        assert_eq!(row.0, 1);
+    }
+
+    #[tokio::test]
+    async fn open_creates_release_drawings_table() {
+        let dir = tempdir().unwrap();
+        let db_path = dir.path().join("velgit.db");
+        let pool = DbPool::open(&db_path).await.unwrap();
+        let row: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='release_drawings'",
+        )
+        .fetch_one(&pool.0)
+        .await
+        .unwrap();
+        assert_eq!(row.0, 1);
+    }
 }

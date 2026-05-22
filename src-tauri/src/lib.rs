@@ -2,6 +2,7 @@ pub mod commands;
 pub mod db;
 pub mod diff;
 pub mod pdf;
+pub mod releases;
 pub mod repository;
 pub mod watcher;
 
@@ -67,6 +68,9 @@ pub fn run() {
             commands::get_commit_history,
             commands::get_pdf_image,
             commands::generate_diff,
+            commands::create_release,
+            commands::list_releases,
+            commands::get_release_drawings,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
