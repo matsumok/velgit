@@ -133,6 +133,33 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn create_stores_commit_oid() {
+        let dir = tempdir().unwrap();
+        let pool = open_db(dir.path()).await;
+        let oid = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef";
+
+        let id = create(
+            &pool,
+            "第1回",
+            "internal",
+            None,
+            &["A.pdf".to_string()],
+            oid,
+            "山田太郎",
+        )
+        .await
+        .unwrap();
+
+        let stored: (String,) =
+            sqlx::query_as("SELECT commit_oid FROM releases WHERE id = ?")
+                .bind(id)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(stored.0, oid);
+    }
+
+    #[tokio::test]
     async fn create_inserts_release_and_returns_id() {
         let dir = tempdir().unwrap();
         let pool = open_db(dir.path()).await;
