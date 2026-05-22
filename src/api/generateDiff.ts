@@ -15,12 +15,12 @@ export function useGenerateDiff() {
     }: {
       filename: string;
       oidA: string;
-      oidB: string;
+      oidB?: string;
     }) =>
       invoke<GenerateDiffResult>("generate_diff", {
         filename,
         oidA,
-        oidB,
+        oidB: oidB ?? null,
       }),
   });
 }

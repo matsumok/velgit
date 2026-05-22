@@ -39,6 +39,7 @@ impl From<CommitEntry> for CommitEntryDto {
 pub struct PendingChangeDto {
     pub filename: String,
     pub status: String,
+    pub change_type: String,
 }
 
 pub fn scan_pdfs(path: &Path) -> Vec<String> {
@@ -123,13 +124,21 @@ pub fn get_pending_changes(state: State<'_, AppState>) -> Result<Vec<PendingChan
         .map(|changes| {
             changes
                 .into_iter()
-                .map(|c| PendingChangeDto {
-                    filename: c.filename,
-                    status: match c.status {
-                        ChangeKind::New => "new".to_string(),
-                        ChangeKind::Modified => "modified".to_string(),
-                        ChangeKind::Deleted => "deleted".to_string(),
-                    },
+                .map(|c| {
+                    let change_type = match repository::classify_change(&path, &c.filename, &c.status) {
+                        repository::ChangeType::None => "none",
+                        repository::ChangeType::Minor => "minor",
+                        repository::ChangeType::Meaningful => "meaningful",
+                    }.to_string();
+                    PendingChangeDto {
+                        filename: c.filename,
+                        status: match c.status {
+                            ChangeKind::New => "new".to_string(),
+                            ChangeKind::Modified => "modified".to_string(),
+                            ChangeKind::Deleted => "deleted".to_string(),
+                        },
+                        change_type,
+                    }
                 })
                 .collect()
         })
@@ -179,7 +188,7 @@ fn extract_pdf_blob(repo: &git2::Repository, oid_str: &str, filename: &str) -> R
 pub fn generate_diff(
     filename: String,
     oid_a: String,
-    oid_b: String,
+    oid_b: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<GenerateDiffResult, String> {
     let repo_path = state.repo_path.lock().unwrap().clone();
@@ -189,22 +198,29 @@ pub fn generate_diff(
 
     let repo = git2::Repository::open(&path).map_err(|e| e.to_string())?;
 
-    // blob OID が同一ならラスタライズをスキップ
-    let oid_a_parsed = git2::Oid::from_str(&oid_a).map_err(|e| e.to_string())?;
-    let oid_b_parsed = git2::Oid::from_str(&oid_b).map_err(|e| e.to_string())?;
-    let commit_a = repo.find_commit(oid_a_parsed).map_err(|e| e.to_string())?;
-    let commit_b = repo.find_commit(oid_b_parsed).map_err(|e| e.to_string())?;
-    let blob_a_id = commit_a.tree().ok()
-        .and_then(|t| t.get_name(&filename).map(|e| e.id()));
-    let blob_b_id = commit_b.tree().ok()
-        .and_then(|t| t.get_name(&filename).map(|e| e.id()));
-
-    if blob_a_id.is_some() && blob_a_id == blob_b_id {
-        return Ok(GenerateDiffResult { change_type: "none".to_string(), url: None });
-    }
-
     let pdf_a = extract_pdf_blob(&repo, &oid_a, &filename)?;
-    let pdf_b = extract_pdf_blob(&repo, &oid_b, &filename)?;
+
+    let pdf_b = if let Some(ref oid_b_str) = oid_b {
+        // blob OID が同一ならラスタライズをスキップ
+        let oid_a_parsed = git2::Oid::from_str(&oid_a).map_err(|e| e.to_string())?;
+        let oid_b_parsed = git2::Oid::from_str(oid_b_str).map_err(|e| e.to_string())?;
+        let commit_a = repo.find_commit(oid_a_parsed).map_err(|e| e.to_string())?;
+        let commit_b = repo.find_commit(oid_b_parsed).map_err(|e| e.to_string())?;
+        let blob_a_id = commit_a.tree().ok()
+            .and_then(|t| t.get_name(&filename).map(|e| e.id()));
+        let blob_b_id = commit_b.tree().ok()
+            .and_then(|t| t.get_name(&filename).map(|e| e.id()));
+        if blob_a_id.is_some() && blob_a_id == blob_b_id {
+            return Ok(GenerateDiffResult { change_type: "none".to_string(), url: None });
+        }
+        extract_pdf_blob(&repo, oid_b_str, &filename)?
+    } else {
+        // oid_b=None: 作業コピーと比較。HEADがなければ差分なしを返す
+        match std::fs::read(path.join(&filename)) {
+            Ok(bytes) => bytes,
+            Err(_) => return Ok(GenerateDiffResult { change_type: "none".to_string(), url: None }),
+        }
+    };
 
     let rgba_a = pdf::rasterize_to_image(&pdf_a, 0).map_err(|e| e.to_string())?;
     let rgba_b = pdf::rasterize_to_image(&pdf_b, 0).map_err(|e| e.to_string())?;

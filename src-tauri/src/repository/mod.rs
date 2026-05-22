@@ -45,6 +45,51 @@ impl From<std::io::Error> for InitError {
 }
 
 #[derive(Debug, PartialEq)]
+pub enum ChangeType {
+    None,
+    Minor,
+    Meaningful,
+}
+
+pub fn classify_change(
+    repo_path: &Path,
+    filename: &str,
+    status: &ChangeKind,
+) -> ChangeType {
+    match status {
+        ChangeKind::New | ChangeKind::Deleted => ChangeType::Meaningful,
+        ChangeKind::Modified => classify_modified(repo_path, filename),
+    }
+}
+
+fn classify_modified(repo_path: &Path, filename: &str) -> ChangeType {
+    let working_copy = match std::fs::read(repo_path.join(filename)) {
+        Ok(b) => b,
+        Err(_) => return ChangeType::Meaningful,
+    };
+    let head_bytes = match head_blob_bytes(repo_path, filename) {
+        Some(b) => b,
+        None => return ChangeType::Meaningful,
+    };
+    if working_copy == head_bytes {
+        ChangeType::None
+    } else {
+        ChangeType::Meaningful
+    }
+}
+
+fn head_blob_bytes(repo_path: &Path, filename: &str) -> Option<Vec<u8>> {
+    ensure_safe_directory(repo_path);
+    let repo = git2::Repository::open(repo_path).ok()?;
+    let head = repo.head().ok()?;
+    let commit = head.peel_to_commit().ok()?;
+    let tree = commit.tree().ok()?;
+    let entry = tree.get_name(filename)?;
+    let blob = repo.find_blob(entry.id()).ok()?;
+    Some(blob.content().to_vec())
+}
+
+#[derive(Debug, PartialEq)]
 pub struct CommitEntry {
     pub oid: String,
     pub message: String,
@@ -318,5 +363,43 @@ mod tests {
         let history = commit_history(dir.path(), "A-001_平面図.pdf").unwrap();
 
         assert!(history.is_empty());
+    }
+
+    #[test]
+    fn classify_modified_with_identical_bytes_returns_none() {
+        let dir = tempdir().unwrap();
+        make_repo(dir.path());
+        fs::write(dir.path().join("A-001_平面図.pdf"), b"same content").unwrap();
+        commit(dir.path(), "初回コミット", "user-a").unwrap();
+        // 作業コピーをHEADと同一バイトで上書き
+        fs::write(dir.path().join("A-001_平面図.pdf"), b"same content").unwrap();
+
+        let result = classify_change(dir.path(), "A-001_平面図.pdf", &ChangeKind::Modified);
+
+        assert_eq!(result, ChangeType::None);
+    }
+
+    #[test]
+    fn classify_deleted_file_returns_meaningful() {
+        let dir = tempdir().unwrap();
+        make_repo(dir.path());
+        fs::write(dir.path().join("A-001_平面図.pdf"), b"content").unwrap();
+        commit(dir.path(), "初回コミット", "user-a").unwrap();
+        fs::remove_file(dir.path().join("A-001_平面図.pdf")).unwrap();
+
+        let result = classify_change(dir.path(), "A-001_平面図.pdf", &ChangeKind::Deleted);
+
+        assert_eq!(result, ChangeType::Meaningful);
+    }
+
+    #[test]
+    fn classify_new_file_returns_meaningful() {
+        let dir = tempdir().unwrap();
+        make_repo(dir.path());
+        fs::write(dir.path().join("A-001_平面図.pdf"), b"new content").unwrap();
+
+        let result = classify_change(dir.path(), "A-001_平面図.pdf", &ChangeKind::New);
+
+        assert_eq!(result, ChangeType::Meaningful);
     }
 }

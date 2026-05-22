@@ -3,10 +3,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAppStore } from "../store/useAppStore";
 
 export type ChangeStatus = "new" | "modified" | "deleted";
+export type ChangeType = "none" | "minor" | "meaningful";
 
 export interface PendingChange {
   filename: string;
   status: ChangeStatus;
+  changeType: ChangeType;
 }
 
 export function useGetPendingChanges() {
