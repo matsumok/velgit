@@ -45,6 +45,47 @@ impl From<std::io::Error> for InitError {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct CommitEntry {
+    pub oid: String,
+    pub message: String,
+    pub author: String,
+    pub timestamp: i64,
+}
+
+pub fn commit_history(repo_path: &Path, filename: &str) -> Result<Vec<CommitEntry>, git2::Error> {
+    ensure_safe_directory(repo_path);
+    let repo = git2::Repository::open(repo_path)?;
+    let mut walk = repo.revwalk()?;
+    walk.push_head().ok();
+    walk.set_sorting(git2::Sort::TIME)?;
+
+    let mut entries = Vec::new();
+    for oid in walk {
+        let oid = oid?;
+        let commit = repo.find_commit(oid)?;
+        let tree = commit.tree()?;
+        let Some(entry) = tree.get_name(filename) else { continue };
+
+        let parent_id = commit
+            .parent(0).ok()
+            .and_then(|p| p.tree().ok())
+            .and_then(|t| t.get_name(filename).map(|e| e.id()));
+
+        if parent_id == Some(entry.id()) {
+            continue;
+        }
+
+        entries.push(CommitEntry {
+            oid: oid.to_string(),
+            message: commit.message().unwrap_or("").trim().to_string(),
+            author: commit.author().name().unwrap_or("").to_string(),
+            timestamp: commit.time().seconds(),
+        });
+    }
+    Ok(entries)
+}
+
+#[derive(Debug, PartialEq)]
 pub enum ChangeKind {
     New,
     Modified,
@@ -234,5 +275,48 @@ mod tests {
         let result = commit(dir.path(), "", "velgit-user");
 
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn commit_history_excludes_commits_that_do_not_touch_the_file() {
+        let dir = tempdir().unwrap();
+        make_repo(dir.path());
+        fs::write(dir.path().join("A-001_平面図.pdf"), b"v1").unwrap();
+        commit(dir.path(), "A図面コミット", "user-a").unwrap();
+        fs::write(dir.path().join("S-001_伏図.pdf"), b"s1").unwrap();
+        commit(dir.path(), "S図面コミット", "user-a").unwrap();
+
+        let history = commit_history(dir.path(), "A-001_平面図.pdf").unwrap();
+
+        assert_eq!(history.len(), 1);
+        assert_eq!(history[0].message, "A図面コミット");
+    }
+
+    #[test]
+    fn commit_history_returns_two_entries_in_reverse_chronological_order() {
+        let dir = tempdir().unwrap();
+        make_repo(dir.path());
+        fs::write(dir.path().join("A-001_平面図.pdf"), b"v1").unwrap();
+        commit(dir.path(), "初回コミット", "user-a").unwrap();
+        fs::write(dir.path().join("A-001_平面図.pdf"), b"v2").unwrap();
+        commit(dir.path(), "2回目コミット", "user-b").unwrap();
+
+        let history = commit_history(dir.path(), "A-001_平面図.pdf").unwrap();
+
+        assert_eq!(history.len(), 2);
+        assert_eq!(history[0].message, "2回目コミット");
+        assert_eq!(history[1].message, "初回コミット");
+        assert!(history[0].timestamp >= history[1].timestamp);
+    }
+
+    #[test]
+    fn commit_history_returns_empty_for_file_never_committed() {
+        let dir = tempdir().unwrap();
+        make_repo(dir.path());
+        fs::write(dir.path().join("A-001_平面図.pdf"), b"pdf").unwrap();
+
+        let history = commit_history(dir.path(), "A-001_平面図.pdf").unwrap();
+
+        assert!(history.is_empty());
     }
 }

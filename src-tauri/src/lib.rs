@@ -38,6 +38,7 @@ pub fn run() {
             commands::get_drawings,
             commands::get_pending_changes,
             commands::commit_changes,
+            commands::get_commit_history,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

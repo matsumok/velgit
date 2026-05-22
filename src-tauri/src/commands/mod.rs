@@ -5,7 +5,7 @@ use tauri::State;
 
 use crate::{
     db::DbPool,
-    repository::{self, ChangeKind, InitError},
+    repository::{self, ChangeKind, CommitEntry, InitError},
     watcher::FileWatcher,
     AppState,
 };
@@ -14,6 +14,21 @@ use crate::{
 pub struct DrawingDto {
     pub filename: String,
     pub added_at: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CommitEntryDto {
+    pub oid: String,
+    pub message: String,
+    pub author: String,
+    pub timestamp: i64,
+}
+
+impl From<CommitEntry> for CommitEntryDto {
+    fn from(e: CommitEntry) -> Self {
+        CommitEntryDto { oid: e.oid, message: e.message, author: e.author, timestamp: e.timestamp }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -126,6 +141,17 @@ pub fn commit_changes(message: String, state: State<'_, AppState>) -> Result<(),
     repository::commit(&path, &message, "velgit-user")
         .map_err(|e| e.to_string())
         .map(|_| ())
+}
+
+#[tauri::command]
+pub fn get_commit_history(filename: String, state: State<'_, AppState>) -> Result<Vec<CommitEntryDto>, String> {
+    let repo_path = state.repo_path.lock().unwrap().clone();
+    let Some(path) = repo_path else {
+        return Ok(vec![]);
+    };
+    repository::commit_history(&path, &filename)
+        .map_err(|e| e.to_string())
+        .map(|entries| entries.into_iter().map(CommitEntryDto::from).collect())
 }
 
 #[tauri::command]

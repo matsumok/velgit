@@ -8,6 +8,7 @@ import { ThreePaneLayout } from "./components/layout/ThreePaneLayout";
 import { useAppStore } from "./store/useAppStore";
 import { useGetDrawings } from "./api/drawings";
 import { CommitPanel } from "./components/commit/CommitPanel";
+import { CommitHistoryPanel } from "./components/layout/CommitHistoryPanel";
 
 function ProjectList() {
   const { selectedProject } = useAppStore();
@@ -30,7 +31,8 @@ function ProjectList() {
 }
 
 function DrawingList() {
-  const { selectedProject, setSelectedProject } = useAppStore();
+  const { selectedProject, setSelectedProject, setSelectedDrawing } =
+    useAppStore();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { data: drawings } = useGetDrawings();
@@ -97,7 +99,8 @@ function DrawingList() {
           {drawings.map((d) => (
             <li
               key={d.filename}
-              className="text-sm px-2 py-1 rounded hover:bg-muted"
+              className="text-sm px-2 py-1 rounded hover:bg-muted cursor-pointer"
+              onClick={() => setSelectedDrawing(d.filename)}
             >
               {d.filename}
             </li>
@@ -112,8 +115,9 @@ function DrawingList() {
 
 function DrawingDetail() {
   return (
-    <div className="p-4">
+    <div className="h-full overflow-y-auto">
       <CommitPanel />
+      <CommitHistoryPanel />
     </div>
   );
 }
