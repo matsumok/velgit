@@ -208,6 +208,49 @@ pub struct GenerateDiffResult {
     pub url: Option<String>,
 }
 
+fn get_pdf_bytes_from_head(repo: &git2::Repository, filename: &str) -> Result<Vec<u8>, String> {
+    let head = repo.head().map_err(|e| e.to_string())?;
+    let commit = head.peel_to_commit().map_err(|e| e.to_string())?;
+    let tree = commit.tree().map_err(|e| e.to_string())?;
+    let entry = tree
+        .get_name(filename)
+        .ok_or_else(|| format!("{filename} が HEAD に見つかりません"))?;
+    let blob = repo.find_blob(entry.id()).map_err(|e| e.to_string())?;
+    Ok(blob.content().to_vec())
+}
+
+#[tauri::command]
+pub async fn generate_bind_pdf(
+    release_id: i64,
+    save_path: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let repo_path = state.repo_path.lock().unwrap().clone();
+    let Some(path) = repo_path else {
+        return Err("ワーキングフォルダが選択されていません".to_string());
+    };
+    let pool = state.db.lock().unwrap().as_ref().map(|db| db.0.clone());
+    let Some(pool) = pool else {
+        return Err("DB が開かれていません".to_string());
+    };
+
+    let mut filenames = releases::get_drawings(&pool, release_id)
+        .await
+        .map_err(|e| e.to_string())?;
+    filenames.sort_by(|a, b| b.cmp(a));
+
+    let repo = git2::Repository::open(&path).map_err(|e| e.to_string())?;
+    let mut pdf_bytes_list: Vec<Vec<u8>> = Vec::new();
+    for filename in &filenames {
+        let bytes = get_pdf_bytes_from_head(&repo, filename)?;
+        pdf_bytes_list.push(bytes);
+    }
+
+    let bound = pdf::bind(&pdf_bytes_list).map_err(|e| e.to_string())?;
+    std::fs::write(&save_path, &bound).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 fn extract_pdf_blob(repo: &git2::Repository, oid_str: &str, filename: &str) -> Result<Vec<u8>, String> {
     let oid = git2::Oid::from_str(oid_str).map_err(|e| e.to_string())?;
     let commit = repo.find_commit(oid).map_err(|e| e.to_string())?;

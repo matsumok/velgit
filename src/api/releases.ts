@@ -30,6 +30,22 @@ export function useGetReleaseDrawings(releaseId: number | null) {
   });
 }
 
+export function useGenerateBindPdf() {
+  return useMutation({
+    mutationFn: ({
+      releaseId,
+      savePath,
+    }: {
+      releaseId: number;
+      savePath: string;
+    }) =>
+      invoke<void>("generate_bind_pdf", {
+        releaseId,
+        savePath,
+      }),
+  });
+}
+
 interface CreateReleaseParams {
   name: string;
   kind: string;

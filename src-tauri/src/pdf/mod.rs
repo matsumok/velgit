@@ -6,6 +6,20 @@ fn load_pdfium() -> Result<Pdfium, PdfiumError> {
         .map(Pdfium::new)
 }
 
+pub fn bind(pdf_bytes_list: &[Vec<u8>]) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    let pdfium = load_pdfium()?;
+    let mut dest = pdfium.create_new_pdf()?;
+    for bytes in pdf_bytes_list {
+        let mut src = pdfium.load_pdf_from_byte_slice(bytes, None)?;
+        let src_count = src.pages().len();
+        for i in 0..src_count {
+            let insert_at = dest.pages().len();
+            dest.pages_mut().copy_page_from_document(&mut src, i, insert_at)?;
+        }
+    }
+    Ok(dest.save_to_bytes()?)
+}
+
 pub fn rasterize_to_image(data: &[u8], page: u32) -> Result<image::RgbaImage, Box<dyn std::error::Error>> {
     let pdfium = load_pdfium()?;
     let doc = pdfium.load_pdf_from_byte_slice(data, None)?;
@@ -41,6 +55,15 @@ mod tests {
         0000000115 00000 n \n\
         trailer\n<< /Size 4 /Root 1 0 R >>\n\
         startxref\n190\n%%EOF";
+
+    #[test]
+    fn bind_returns_valid_pdf_bytes() {
+        let result = bind(&[MINIMAL_PDF.to_vec(), MINIMAL_PDF.to_vec()]);
+        assert!(result.is_ok(), "bind failed: {:?}", result.err());
+        let bytes = result.unwrap();
+        assert!(!bytes.is_empty());
+        assert!(bytes.starts_with(b"%PDF"), "output is not PDF");
+    }
 
     #[test]
     fn rasterize_returns_error_for_invalid_data() {

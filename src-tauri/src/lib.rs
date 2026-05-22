@@ -71,6 +71,7 @@ pub fn run() {
             commands::create_release,
             commands::list_releases,
             commands::get_release_drawings,
+            commands::generate_bind_pdf,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

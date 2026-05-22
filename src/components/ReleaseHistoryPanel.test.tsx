@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi, describe, it, expect, beforeEach } from "vitest";
-import { useListReleases } from "../api/releases";
+import { useListReleases, useGenerateBindPdf } from "../api/releases";
 import { ReleaseHistoryPanel } from "./ReleaseHistoryPanel";
 
 const MOCK_RELEASES = [
@@ -27,12 +27,23 @@ const MOCK_RELEASES = [
   },
 ];
 
+const mockGeneratePdf = vi.fn().mockResolvedValue(undefined);
+
 vi.mock("../api/releases", () => ({
   useListReleases: vi.fn(() => ({ data: MOCK_RELEASES })),
   useGetReleaseDrawings: vi.fn(() => ({
     data: ["A-001_平面図.pdf", "S-001_伏図.pdf"],
   })),
   useCreateRelease: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
+  useGenerateBindPdf: vi.fn(() => ({
+    mutateAsync: mockGeneratePdf,
+    isPending: false,
+  })),
+}));
+
+vi.mock("@tauri-apps/plugin-dialog", () => ({
+  save: vi.fn().mockResolvedValue("/path/to/output.pdf"),
+  open: vi.fn(),
 }));
 
 beforeEach(() => {
@@ -40,6 +51,11 @@ beforeEach(() => {
   vi.mocked(useListReleases).mockReturnValue({
     data: MOCK_RELEASES,
   } as unknown as ReturnType<typeof useListReleases>);
+  vi.mocked(useGenerateBindPdf).mockReturnValue({
+    mutateAsync: mockGeneratePdf,
+    isPending: false,
+  } as unknown as ReturnType<typeof useGenerateBindPdf>);
+  mockGeneratePdf.mockResolvedValue(undefined);
 });
 
 describe("ReleaseHistoryPanel", () => {
@@ -84,5 +100,34 @@ describe("ReleaseHistoryPanel", () => {
     await user.click(screen.getByRole("button", { name: /実施設計第2回/ }));
     await user.click(screen.getByRole("button", { name: /実施設計第2回/ }));
     expect(screen.queryByText("A-001_平面図.pdf")).not.toBeInTheDocument();
+  });
+
+  it("各エントリに「バインドPDF生成」ボタンが表示される", () => {
+    render(<ReleaseHistoryPanel />);
+    expect(
+      screen.getAllByRole("button", { name: "バインドPDF生成" }),
+    ).toHaveLength(2);
+  });
+
+  it("バインドPDF生成ボタンクリックでsaveダイアログが開き生成コマンドを呼ぶ", async () => {
+    const user = userEvent.setup();
+    render(<ReleaseHistoryPanel />);
+    const buttons = screen.getAllByRole("button", { name: "バインドPDF生成" });
+    await user.click(buttons[0]);
+    expect(mockGeneratePdf).toHaveBeenCalledWith({
+      releaseId: 1,
+      savePath: "/path/to/output.pdf",
+    });
+  });
+
+  it("isPendingのときボタンがローディング状態になる", () => {
+    vi.mocked(useGenerateBindPdf).mockReturnValue({
+      mutateAsync: mockGeneratePdf,
+      isPending: true,
+    } as unknown as ReturnType<typeof useGenerateBindPdf>);
+    render(<ReleaseHistoryPanel />);
+    expect(screen.getAllByRole("button", { name: "生成中..." })).toHaveLength(
+      2,
+    );
   });
 });
