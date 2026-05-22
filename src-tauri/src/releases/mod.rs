@@ -28,6 +28,7 @@ pub async fn create(
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs() as i64;
+    let mut tx = pool.begin().await?;
     let id = sqlx::query(
         "INSERT INTO releases (name, kind, recipient, commit_oid, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?)",
     )
@@ -37,7 +38,7 @@ pub async fn create(
     .bind(commit_oid)
     .bind(now)
     .bind(created_by)
-    .execute(pool)
+    .execute(&mut *tx)
     .await?
     .last_insert_rowid();
 
@@ -47,10 +48,11 @@ pub async fn create(
         )
         .bind(id)
         .bind(filename)
-        .execute(pool)
+        .execute(&mut *tx)
         .await?;
     }
 
+    tx.commit().await?;
     Ok(id)
 }
 
