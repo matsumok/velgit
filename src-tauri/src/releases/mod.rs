@@ -73,6 +73,23 @@ pub async fn list(pool: &SqlitePool) -> Result<Vec<ReleaseEntry>, sqlx::Error> {
         .collect())
 }
 
+pub async fn get_by_id(pool: &SqlitePool, id: i64) -> Result<Option<ReleaseEntry>, sqlx::Error> {
+    let row = sqlx::query_as::<_, (i64, String, String, Option<String>, String, i64, String, i64)>(
+        "SELECT r.id, r.name, r.kind, r.recipient, r.commit_oid, r.created_at, r.created_by, \
+         COUNT(rd.filename) as drawing_count \
+         FROM releases r \
+         LEFT JOIN release_drawings rd ON rd.release_id = r.id \
+         WHERE r.id = ? \
+         GROUP BY r.id",
+    )
+    .bind(id)
+    .fetch_optional(pool)
+    .await?;
+    Ok(row.map(|(id, name, kind, recipient, commit_oid, created_at, created_by, drawing_count)| {
+        ReleaseEntry { id, name, kind, recipient, commit_oid, created_at, created_by, drawing_count }
+    }))
+}
+
 pub async fn get_drawings(pool: &SqlitePool, id: i64) -> Result<Vec<String>, sqlx::Error> {
     let rows = sqlx::query_as::<_, (String,)>(
         "SELECT filename FROM release_drawings WHERE release_id = ? ORDER BY filename",

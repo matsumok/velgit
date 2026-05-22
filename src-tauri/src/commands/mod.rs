@@ -208,17 +208,6 @@ pub struct GenerateDiffResult {
     pub url: Option<String>,
 }
 
-fn get_pdf_bytes_from_head(repo: &git2::Repository, filename: &str) -> Result<Vec<u8>, String> {
-    let head = repo.head().map_err(|e| e.to_string())?;
-    let commit = head.peel_to_commit().map_err(|e| e.to_string())?;
-    let tree = commit.tree().map_err(|e| e.to_string())?;
-    let entry = tree
-        .get_name(filename)
-        .ok_or_else(|| format!("{filename} が HEAD に見つかりません"))?;
-    let blob = repo.find_blob(entry.id()).map_err(|e| e.to_string())?;
-    Ok(blob.content().to_vec())
-}
-
 #[tauri::command]
 pub async fn generate_bind_pdf(
     release_id: i64,
@@ -234,6 +223,11 @@ pub async fn generate_bind_pdf(
         return Err("DB が開かれていません".to_string());
     };
 
+    let release = releases::get_by_id(&pool, release_id)
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("リリース {release_id} が見つかりません"))?;
+
     let mut filenames = releases::get_drawings(&pool, release_id)
         .await
         .map_err(|e| e.to_string())?;
@@ -242,7 +236,7 @@ pub async fn generate_bind_pdf(
     let repo = git2::Repository::open(&path).map_err(|e| e.to_string())?;
     let mut pdf_bytes_list: Vec<Vec<u8>> = Vec::new();
     for filename in &filenames {
-        let bytes = get_pdf_bytes_from_head(&repo, filename)?;
+        let bytes = extract_pdf_blob(&repo, &release.commit_oid, filename)?;
         pdf_bytes_list.push(bytes);
     }
 
