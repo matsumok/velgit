@@ -2,7 +2,7 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 use tauri::State;
-use uuid::Uuid;
+use base64::{Engine as _, engine::general_purpose::STANDARD};
 
 use crate::{
     db::{CommitFileRecord, DbPool},
@@ -315,12 +315,8 @@ pub fn generate_diff(
         .write_to(&mut std::io::Cursor::new(&mut png_bytes), image::ImageFormat::Png)
         .map_err(|e| e.to_string())?;
 
-    let id = Uuid::new_v4().to_string();
-    let tmp_path = std::env::temp_dir().join(format!("velgit_diff_{id}.png"));
-    std::fs::write(&tmp_path, &png_bytes).map_err(|e| e.to_string())?;
-    state.temp_images.lock().unwrap().insert(id.clone(), tmp_path);
-
-    Ok(GenerateDiffResult { change_type, url: Some(format!("velgit://image/{id}")) })
+    let url = format!("data:image/png;base64,{}", STANDARD.encode(&png_bytes));
+    Ok(GenerateDiffResult { change_type, url: Some(url) })
 }
 
 #[tauri::command]
@@ -349,17 +345,7 @@ pub fn get_pdf_image(
 
     let png_bytes = pdf::rasterize(pdf_bytes, 0).map_err(|e| e.to_string())?;
 
-    let id = Uuid::new_v4().to_string();
-    let tmp_path = std::env::temp_dir().join(format!("velgit_img_{id}.png"));
-    std::fs::write(&tmp_path, &png_bytes).map_err(|e| e.to_string())?;
-
-    state
-        .temp_images
-        .lock()
-        .unwrap()
-        .insert(id.clone(), tmp_path);
-
-    Ok(format!("velgit://image/{id}"))
+    Ok(format!("data:image/png;base64,{}", STANDARD.encode(&png_bytes)))
 }
 
 #[tauri::command]

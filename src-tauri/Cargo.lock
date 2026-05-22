@@ -5743,6 +5743,7 @@ dependencies = [
 name = "velgit"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "git2",
  "image",
  "notify",
@@ -5757,7 +5758,6 @@ dependencies = [
  "tauri-plugin-updater",
  "tempfile",
  "tokio",
- "uuid",
 ]
 
 [[package]]
