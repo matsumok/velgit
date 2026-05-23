@@ -2,13 +2,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import { listen } from "@tauri-apps/api/event";
 import { useEffect, useState } from "react";
 import { useGetDrawings } from "./api/drawings";
+import { useGetPendingChanges } from "./api/pendingChanges";
 import { useInitProject } from "./api/project";
+import { useGetDrawingsAtCommit } from "./api/projectCommits";
 import { queryKeys } from "./api/queryKeys";
 import { CommitPanel } from "./components/commit/CommitPanel";
 import { CommitHistoryPanel } from "./components/layout/CommitHistoryPanel";
 import { ThreePaneLayout } from "./components/layout/ThreePaneLayout";
 import { ProjectTimeline } from "./components/ProjectTimeline";
-import { ReleaseHistoryPanel } from "./components/ReleaseHistoryPanel";
 import { ReleasePanel } from "./components/ReleasePanel";
 import { UsernameGate } from "./components/UsernameGate";
 import { UsernameSection } from "./components/UsernameSection";
@@ -34,10 +35,53 @@ function LeftPane() {
   );
 }
 
-function DrawingList() {
-  const { selectedProject, setSelectedDrawing } = useAppStore();
+function DrawingListContent() {
+  const { selectedCommitOid, setSelectedDrawing } = useAppStore();
+  const { data: headDrawings } = useGetDrawings();
+  const { data: pastDrawings } = useGetDrawingsAtCommit(selectedCommitOid);
+
+  const filenames =
+    selectedCommitOid === "HEAD"
+      ? (headDrawings ?? []).map((d) => d.filename)
+      : (pastDrawings ?? []);
+
+  return (
+    <div className="flex-1 overflow-y-auto p-4">
+      <p className="text-xs text-muted-foreground mb-2">図面一覧</p>
+      {filenames.length > 0 ? (
+        <ul className="space-y-1">
+          {filenames.map((filename) => (
+            <li key={filename}>
+              <button
+                type="button"
+                className="w-full text-left text-sm px-2 py-1 rounded hover:bg-muted cursor-pointer"
+                onClick={() => setSelectedDrawing(filename)}
+              >
+                {filename}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-muted-foreground">PDFファイルがありません</p>
+      )}
+    </div>
+  );
+}
+
+function ActionArea() {
+  const selectedCommitOid = useAppStore((s) => s.selectedCommitOid);
+  const { data: changes } = useGetPendingChanges();
+
+  if (selectedCommitOid !== "HEAD") return null;
+
+  if (changes && changes.length > 0) return <CommitPanel />;
+  return <ReleasePanel />;
+}
+
+function CenterPane() {
+  const { selectedProject } = useAppStore();
   const { error, loading, openFolder } = useInitProject();
-  const { data: drawings } = useGetDrawings();
 
   if (!selectedProject) {
     return (
@@ -61,25 +105,9 @@ function DrawingList() {
   }
 
   return (
-    <div className="p-4">
-      <p className="text-xs text-muted-foreground mb-2">図面一覧</p>
-      {drawings && drawings.length > 0 ? (
-        <ul className="space-y-1">
-          {drawings.map((d) => (
-            <li key={d.filename}>
-              <button
-                type="button"
-                className="w-full text-left text-sm px-2 py-1 rounded hover:bg-muted cursor-pointer"
-                onClick={() => setSelectedDrawing(d.filename)}
-              >
-                {d.filename}
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-sm text-muted-foreground">PDFファイルがありません</p>
-      )}
+    <div className="flex flex-col h-full">
+      <DrawingListContent />
+      <ActionArea />
     </div>
   );
 }
@@ -88,10 +116,7 @@ function DrawingDetail() {
   const selectedDrawing = useAppStore((s) => s.selectedDrawing);
   return (
     <div className="h-full overflow-y-auto">
-      <CommitPanel />
       <CommitHistoryPanel key={selectedDrawing ?? ""} />
-      <ReleasePanel />
-      <ReleaseHistoryPanel />
     </div>
   );
 }
@@ -137,7 +162,7 @@ function App() {
         <div className="flex-1 overflow-hidden">
           <ThreePaneLayout
             left={<LeftPane />}
-            center={<DrawingList />}
+            center={<CenterPane />}
             right={<DrawingDetail />}
           />
         </div>
