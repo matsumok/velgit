@@ -7,12 +7,13 @@ import { useInitProject } from "./api/project";
 import { useGetDrawingsAtCommit } from "./api/projectCommits";
 import { queryKeys } from "./api/queryKeys";
 import { CommitPanel } from "./components/commit/CommitPanel";
+import { JobSelector } from "./components/JobSelector";
 import { CommitHistoryPanel } from "./components/layout/CommitHistoryPanel";
+import { AppHeader } from "./components/layout/AppHeader";
 import { ThreePaneLayout } from "./components/layout/ThreePaneLayout";
 import { ProjectTimeline } from "./components/ProjectTimeline";
 import { ReleasePanel } from "./components/ReleasePanel";
 import { UsernameGate } from "./components/UsernameGate";
-import { UsernameSection } from "./components/UsernameSection";
 import { Badge } from "./components/ui/badge";
 import { resolveDrawingStatuses } from "./lib/drawingStatus";
 import { useDrawingSelection } from "./lib/useDrawingSelection";
@@ -20,18 +21,10 @@ import { cn } from "./lib/utils";
 import { useAppStore } from "./store/useAppStore";
 
 function LeftPane() {
-  const { selectedProject } = useAppStore();
-  const folderName = selectedProject
-    ? (selectedProject.split(/[\\/]/).pop() ?? selectedProject)
-    : null;
-
   return (
     <div className="flex flex-col h-full">
-      <div className="shrink-0 border-b px-3 pt-3 pb-1">
-        <p className="text-xs text-muted-foreground truncate">
-          {folderName ?? "物件未選択"}
-        </p>
-        <UsernameSection />
+      <div className="shrink-0 border-b">
+        <JobSelector />
       </div>
       <ProjectTimeline />
     </div>
@@ -219,12 +212,21 @@ function useWatcherState() {
   return isPolling;
 }
 
+function useThemeSync() {
+  const theme = useAppStore((s) => s.theme);
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", theme === "dark");
+  }, [theme]);
+}
+
 function App() {
   usePdfChangedListener();
+  useThemeSync();
   const isPolling = useWatcherState();
   return (
     <UsernameGate>
       <div className="flex flex-col h-screen w-screen overflow-hidden">
+        <AppHeader />
         <div className="flex-1 overflow-hidden">
           <ThreePaneLayout
             left={<LeftPane />}

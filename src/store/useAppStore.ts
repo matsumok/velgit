@@ -1,6 +1,13 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+export interface Job {
+  id: string;
+  name: string;
+  path: string;
+  createdAt: number;
+}
+
 interface AppState {
   selectedProject: string | null;
   setSelectedProject: (project: string | null) => void;
@@ -10,11 +17,18 @@ interface AppState {
   setSelectedCommitOid: (oid: string | "HEAD") => void;
   username: string | null;
   setUsername: (name: string) => void;
+  jobs: Job[];
+  addJob: (job: Job) => void;
+  removeJob: (id: string) => void;
+  selectedJobId: string | null;
+  selectJob: (id: string | null) => void;
+  theme: "light" | "dark";
+  setTheme: (theme: "light" | "dark") => void;
 }
 
 export const useAppStore = create<AppState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       selectedProject: null,
       setSelectedProject: (project) =>
         set({
@@ -28,6 +42,26 @@ export const useAppStore = create<AppState>()(
       setSelectedCommitOid: (oid) => set({ selectedCommitOid: oid }),
       username: null,
       setUsername: (name) => set({ username: name }),
+      jobs: [],
+      addJob: (job) => set((s) => ({ jobs: [...s.jobs, job] })),
+      removeJob: (id) =>
+        set((s) => ({
+          jobs: s.jobs.filter((j) => j.id !== id),
+          selectedJobId: s.selectedJobId === id ? null : s.selectedJobId,
+        })),
+      selectedJobId: null,
+      selectJob: (id) => {
+        const { jobs } = get();
+        const job = id ? (jobs.find((j) => j.id === id) ?? null) : null;
+        set({
+          selectedJobId: id,
+          selectedProject: job?.path ?? null,
+          selectedCommitOid: "HEAD",
+          selectedDrawing: null,
+        });
+      },
+      theme: "light",
+      setTheme: (theme) => set({ theme }),
     }),
     { name: "velgit-store" },
   ),
