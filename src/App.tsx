@@ -7,6 +7,7 @@ import { queryKeys } from "./api/queryKeys";
 import { CommitPanel } from "./components/commit/CommitPanel";
 import { CommitHistoryPanel } from "./components/layout/CommitHistoryPanel";
 import { ThreePaneLayout } from "./components/layout/ThreePaneLayout";
+import { ProjectTimeline } from "./components/ProjectTimeline";
 import { ReleaseHistoryPanel } from "./components/ReleaseHistoryPanel";
 import { ReleasePanel } from "./components/ReleasePanel";
 import { UsernameGate } from "./components/UsernameGate";
@@ -14,25 +15,21 @@ import { UsernameSection } from "./components/UsernameSection";
 import { cn } from "./lib/utils";
 import { useAppStore } from "./store/useAppStore";
 
-function ProjectList() {
+function LeftPane() {
   const { selectedProject } = useAppStore();
   const folderName = selectedProject
     ? (selectedProject.split(/[\\/]/).pop() ?? selectedProject)
     : null;
 
   return (
-    <div>
-      <UsernameSection />
-      <div className="p-4 pt-2">
-        <p className="text-xs text-muted-foreground mb-2">物件</p>
-        {folderName ? (
-          <div className="px-3 py-2 rounded text-sm bg-primary text-primary-foreground">
-            {folderName}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">未選択</p>
-        )}
+    <div className="flex flex-col h-full">
+      <div className="shrink-0 border-b px-3 pt-3 pb-1">
+        <p className="text-xs text-muted-foreground truncate">
+          {folderName ?? "物件未選択"}
+        </p>
+        <UsernameSection />
       </div>
+      <ProjectTimeline />
     </div>
   );
 }
@@ -139,7 +136,7 @@ function App() {
       <div className="flex flex-col h-screen w-screen overflow-hidden">
         <div className="flex-1 overflow-hidden">
           <ThreePaneLayout
-            left={<ProjectList />}
+            left={<LeftPane />}
             center={<DrawingList />}
             right={<DrawingDetail />}
           />
