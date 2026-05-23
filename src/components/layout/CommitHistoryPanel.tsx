@@ -23,6 +23,17 @@ const CHANGE_TYPE_LABEL: Record<string, string> = {
   meaningful: "意味的変更",
 };
 
+function Spinner({ className }: { className?: string }) {
+  return (
+    <div
+      className={cn(
+        "size-5 rounded-full border-2 border-muted border-t-muted-foreground animate-spin",
+        className,
+      )}
+    />
+  );
+}
+
 function useDiffAtCommit(
   filename: string | null,
   historyOid: string | null,
@@ -44,8 +55,10 @@ function useDiffAtCommit(
 export function CommitHistoryPanel() {
   const selectedDrawing = useAppStore((s) => s.selectedDrawing);
   const selectedCommitOid = useAppStore((s) => s.selectedCommitOid);
-  const { data: allCommits = [], isLoading } = useGetProjectCommits();
-  const { data: fileCommits = [] } = useGetCommitHistory();
+  const { data: allCommits = [], isLoading: allLoading } =
+    useGetProjectCommits();
+  const { data: fileCommits = [], isLoading: fileLoading } =
+    useGetCommitHistory();
   const [selectedHistoryOid, setSelectedHistoryOid] = useState<string | null>(
     null,
   );
@@ -55,6 +68,20 @@ export function CommitHistoryPanel() {
   }, [selectedDrawing, selectedCommitOid]);
 
   const fileOidSet = new Set(fileCommits.map((c) => c.oid));
+
+  // Commits at or before selectedCommitOid (newest-first list, so slice from that index)
+  const cutCommits =
+    selectedCommitOid === "HEAD"
+      ? allCommits
+      : (() => {
+          const idx = allCommits.findIndex(
+            (c) => c.oid === selectedCommitOid,
+          );
+          return idx >= 0 ? allCommits.slice(idx) : allCommits;
+        })();
+
+  // Only file-relevant commits
+  const visibleCommits = cutCommits.filter((c) => fileOidSet.has(c.oid));
 
   // Resolve HEAD to the latest commit OID for preview
   const resolvedPreviewOid =
@@ -89,6 +116,8 @@ export function CommitHistoryPanel() {
     );
   }
 
+  const listLoading = allLoading || fileLoading;
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="shrink-0 px-3 py-2 border-b">
@@ -98,16 +127,17 @@ export function CommitHistoryPanel() {
       </div>
 
       <ScrollArea className="flex-1 min-h-0">
-        {isLoading ? (
-          <p className="p-4 text-sm text-muted-foreground">読み込み中...</p>
-        ) : allCommits.length === 0 ? (
+        {listLoading ? (
+          <div className="flex h-16 items-center justify-center">
+            <Spinner />
+          </div>
+        ) : visibleCommits.length === 0 ? (
           <p className="p-4 text-sm text-muted-foreground">
             コミット履歴がありません
           </p>
         ) : (
           <ul className="py-1">
-            {allCommits.map((commit) => {
-              const touched = fileOidSet.has(commit.oid);
+            {visibleCommits.map((commit) => {
               const selected = selectedHistoryOid === commit.oid;
               return (
                 <li key={commit.oid}>
@@ -119,7 +149,6 @@ export function CommitHistoryPanel() {
                     className={cn(
                       "w-full text-left px-3 py-2 text-xs hover:bg-muted/60 transition-colors",
                       selected && "bg-muted",
-                      !touched && "opacity-40",
                     )}
                   >
                     <p className="truncate font-medium">{commit.message}</p>
@@ -157,7 +186,7 @@ export function CommitHistoryPanel() {
           </div>
         ) : previewLoading ? (
           <div className="flex h-20 items-center justify-center">
-            <p className="text-xs text-muted-foreground">読み込み中...</p>
+            <Spinner />
           </div>
         ) : previewUrl ? (
           <img
