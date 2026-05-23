@@ -14,6 +14,7 @@ import { ProjectTimeline } from "./components/ProjectTimeline";
 import { ReleasePanel } from "./components/ReleasePanel";
 import { UsernameGate } from "./components/UsernameGate";
 import { UsernameSection } from "./components/UsernameSection";
+import { Badge } from "./components/ui/badge";
 import { cn } from "./lib/utils";
 import { useAppStore } from "./store/useAppStore";
 
@@ -54,6 +55,7 @@ function DrawingListContent() {
       : (pastDrawings ?? []).map((filename) => ({
           filename,
           status: "unchanged" as const,
+          isMinor: false,
         }));
 
   return (
@@ -61,17 +63,22 @@ function DrawingListContent() {
       <p className="text-xs text-muted-foreground mb-2">図面一覧</p>
       {items.length > 0 ? (
         <ul className="space-y-1">
-          {items.map(({ filename, status }) => (
+          {items.map(({ filename, status, isMinor }) => (
             <li key={filename}>
               <button
                 type="button"
                 className={cn(
-                  "w-full text-left text-sm px-2 py-1 rounded hover:bg-muted cursor-pointer",
+                  "w-full text-left text-sm px-2 py-1 rounded hover:bg-muted cursor-pointer flex items-center gap-2",
                   STATUS_COLOR[status],
                 )}
                 onClick={() => setSelectedDrawing(filename)}
               >
-                {filename}
+                <span className="flex-1 truncate">{filename}</span>
+                {isMinor && (
+                  <Badge variant="secondary" className="shrink-0 text-xs">
+                    ~
+                  </Badge>
+                )}
               </button>
             </li>
           ))}

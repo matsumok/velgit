@@ -7,28 +7,39 @@ const drawing = (filename: string): Drawing => ({ filename, added_at: 0 });
 const pending = (
   filename: string,
   status: PendingChange["status"],
-): PendingChange => ({
-  filename,
-  status,
-  changeType: "meaningful",
-});
+  changeType: PendingChange["changeType"] = "meaningful",
+): PendingChange => ({ filename, status, changeType });
 
 describe("resolveDrawingStatuses", () => {
   it("空入力は空配列を返す", () => {
     expect(resolveDrawingStatuses([], [])).toEqual([]);
   });
 
-  it("pending changes がない図面は unchanged", () => {
+  it("pending changes がない図面は unchanged・isMinor false", () => {
     const result = resolveDrawingStatuses([drawing("A-001.pdf")], []);
-    expect(result).toEqual([{ filename: "A-001.pdf", status: "unchanged" }]);
+    expect(result).toEqual([
+      { filename: "A-001.pdf", status: "unchanged", isMinor: false },
+    ]);
   });
 
-  it("modified の pending change がある図面は modified", () => {
+  it("meaningful modified は isMinor false", () => {
     const result = resolveDrawingStatuses(
       [drawing("A-001.pdf")],
-      [pending("A-001.pdf", "modified")],
+      [pending("A-001.pdf", "modified", "meaningful")],
     );
-    expect(result).toEqual([{ filename: "A-001.pdf", status: "modified" }]);
+    expect(result).toEqual([
+      { filename: "A-001.pdf", status: "modified", isMinor: false },
+    ]);
+  });
+
+  it("minor modified は isMinor true", () => {
+    const result = resolveDrawingStatuses(
+      [drawing("A-001.pdf")],
+      [pending("A-001.pdf", "modified", "minor")],
+    );
+    expect(result).toEqual([
+      { filename: "A-001.pdf", status: "modified", isMinor: true },
+    ]);
   });
 
   it("deleted の図面はリストから除外される", () => {
@@ -39,9 +50,11 @@ describe("resolveDrawingStatuses", () => {
     expect(result).toEqual([]);
   });
 
-  it("drawings にない new ファイルはリストに追加される", () => {
+  it("new ファイルは isMinor false", () => {
     const result = resolveDrawingStatuses([], [pending("A-001.pdf", "new")]);
-    expect(result).toEqual([{ filename: "A-001.pdf", status: "new" }]);
+    expect(result).toEqual([
+      { filename: "A-001.pdf", status: "new", isMinor: false },
+    ]);
   });
 
   it("ファイル名の昇順でソートされる", () => {
@@ -60,15 +73,15 @@ describe("resolveDrawingStatuses", () => {
     const result = resolveDrawingStatuses(
       [drawing("A.pdf"), drawing("B.pdf"), drawing("C.pdf")],
       [
-        pending("B.pdf", "modified"),
+        pending("B.pdf", "modified", "minor"),
         pending("C.pdf", "deleted"),
         pending("D.pdf", "new"),
       ],
     );
     expect(result).toEqual([
-      { filename: "A.pdf", status: "unchanged" },
-      { filename: "B.pdf", status: "modified" },
-      { filename: "D.pdf", status: "new" },
+      { filename: "A.pdf", status: "unchanged", isMinor: false },
+      { filename: "B.pdf", status: "modified", isMinor: true },
+      { filename: "D.pdf", status: "new", isMinor: false },
     ]);
   });
 });
