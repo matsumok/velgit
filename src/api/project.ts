@@ -21,11 +21,17 @@ export function useInitProject() {
           return;
         }
         invoke("init_working_folder", { path: selectedProject })
-          .then(() =>
+          .then(() => {
             queryClient.invalidateQueries({
               queryKey: queryKeys.drawings(selectedProject),
-            }),
-          )
+            });
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.projectCommits(selectedProject),
+            });
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.releases(selectedProject),
+            });
+          })
           .catch(() => setSelectedProject(null));
       },
     );
