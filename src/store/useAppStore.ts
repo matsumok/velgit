@@ -16,7 +16,8 @@ export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
       selectedProject: null,
-      setSelectedProject: (project) => set({ selectedProject: project }),
+      setSelectedProject: (project) =>
+        set({ selectedProject: project, selectedCommitOid: "HEAD", selectedDrawing: null }),
       selectedDrawing: null,
       setSelectedDrawing: (filename) => set({ selectedDrawing: filename }),
       selectedCommitOid: "HEAD",
