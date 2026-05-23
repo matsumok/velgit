@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useGetDrawings } from "./api/drawings";
 import { useGetPendingChanges } from "./api/pendingChanges";
 import { useInitProject } from "./api/project";
+import { resolveDrawingStatuses } from "./lib/drawingStatus";
 import { useGetDrawingsAtCommit } from "./api/projectCommits";
 import { queryKeys } from "./api/queryKeys";
 import { CommitPanel } from "./components/commit/CommitPanel";
@@ -35,26 +36,39 @@ function LeftPane() {
   );
 }
 
+const STATUS_COLOR = {
+  new: "text-green-600",
+  modified: "text-yellow-600",
+  unchanged: "",
+} as const;
+
 function DrawingListContent() {
   const { selectedCommitOid, setSelectedDrawing } = useAppStore();
-  const { data: headDrawings } = useGetDrawings();
+  const { data: headDrawings = [] } = useGetDrawings();
   const { data: pastDrawings } = useGetDrawingsAtCommit(selectedCommitOid);
+  const { data: pendingChanges = [] } = useGetPendingChanges();
 
-  const filenames =
+  const items =
     selectedCommitOid === "HEAD"
-      ? (headDrawings ?? []).map((d) => d.filename)
-      : (pastDrawings ?? []);
+      ? resolveDrawingStatuses(headDrawings, pendingChanges)
+      : (pastDrawings ?? []).map((filename) => ({
+          filename,
+          status: "unchanged" as const,
+        }));
 
   return (
     <div className="flex-1 overflow-y-auto p-4">
       <p className="text-xs text-muted-foreground mb-2">図面一覧</p>
-      {filenames.length > 0 ? (
+      {items.length > 0 ? (
         <ul className="space-y-1">
-          {filenames.map((filename) => (
+          {items.map(({ filename, status }) => (
             <li key={filename}>
               <button
                 type="button"
-                className="w-full text-left text-sm px-2 py-1 rounded hover:bg-muted cursor-pointer"
+                className={cn(
+                  "w-full text-left text-sm px-2 py-1 rounded hover:bg-muted cursor-pointer",
+                  STATUS_COLOR[status],
+                )}
                 onClick={() => setSelectedDrawing(filename)}
               >
                 {filename}
