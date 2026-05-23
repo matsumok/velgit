@@ -2,6 +2,17 @@
 
 Conventions for Tailwind CSS and shadcn/ui usage in this project.
 
+## Formatting
+
+Run the appropriate formatter before every commit.
+
+| Target | Tool | Command |
+|--------|------|---------|
+| `.ts` / `.tsx` | Biome | `pnpm biome format --write .` |
+| `.rs` | rust-analyzer (`rustfmt`) | save in editor / `cargo fmt` |
+
+Do not commit unformatted files.
+
 ## shadcn/ui components
 
 - Components installed under `src/components/ui/` are **not to be edited**.
