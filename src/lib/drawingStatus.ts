@@ -15,6 +15,8 @@ export function resolveDrawingStatuses(
 ): DrawingWithStatus[] {
   const changeMap = new Map(pendingChanges.map((c) => [c.filename, c]));
 
+  const drawingFilenameSet = new Set(drawings.map((d) => d.filename));
+
   const fromDrawings: DrawingWithStatus[] = drawings
     .filter((d) => changeMap.get(d.filename)?.status !== "deleted")
     .map((d) => {
@@ -27,7 +29,7 @@ export function resolveDrawingStatuses(
     });
 
   const newFiles: DrawingWithStatus[] = pendingChanges
-    .filter((c) => c.status === "new")
+    .filter((c) => c.status === "new" && !drawingFilenameSet.has(c.filename))
     .map((c) => ({
       filename: c.filename,
       status: "new" as const,
