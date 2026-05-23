@@ -455,4 +455,101 @@ mod tests {
 
         assert_eq!(result, ChangeType::Meaningful);
     }
+
+    #[test]
+    fn project_commits_returns_empty_for_repo_with_no_commits() {
+        let dir = tempdir().unwrap();
+        make_repo(dir.path());
+
+        let commits = project_commits(dir.path()).unwrap();
+
+        assert!(commits.is_empty());
+    }
+
+    #[test]
+    fn project_commits_returns_all_commits_in_reverse_chronological_order() {
+        let dir = tempdir().unwrap();
+        make_repo(dir.path());
+        fs::write(dir.path().join("A-001_平面図.pdf"), b"v1").unwrap();
+        commit(dir.path(), "初回コミット", "user-a").unwrap();
+        fs::write(dir.path().join("S-001_伏図.pdf"), b"s1").unwrap();
+        commit(dir.path(), "2回目コミット", "user-b").unwrap();
+
+        let commits = project_commits(dir.path()).unwrap();
+
+        assert_eq!(commits.len(), 2);
+        assert_eq!(commits[0].message, "2回目コミット");
+        assert_eq!(commits[1].message, "初回コミット");
+        assert!(commits[0].timestamp >= commits[1].timestamp);
+    }
+
+    #[test]
+    fn project_commits_includes_commits_regardless_of_which_file_changed() {
+        let dir = tempdir().unwrap();
+        make_repo(dir.path());
+        fs::write(dir.path().join("A-001_平面図.pdf"), b"v1").unwrap();
+        commit(dir.path(), "A図面コミット", "user-a").unwrap();
+        fs::write(dir.path().join("S-001_伏図.pdf"), b"s1").unwrap();
+        commit(dir.path(), "S図面コミット", "user-a").unwrap();
+
+        let commits = project_commits(dir.path()).unwrap();
+
+        assert_eq!(commits.len(), 2);
+    }
+
+    #[test]
+    fn project_commits_records_author() {
+        let dir = tempdir().unwrap();
+        make_repo(dir.path());
+        fs::write(dir.path().join("A-001_平面図.pdf"), b"v1").unwrap();
+        commit(dir.path(), "初回コミット", "山田太郎").unwrap();
+
+        let commits = project_commits(dir.path()).unwrap();
+
+        assert_eq!(commits[0].author, "山田太郎");
+    }
+
+    #[test]
+    fn drawings_at_commit_returns_pdfs_present_at_that_commit() {
+        let dir = tempdir().unwrap();
+        make_repo(dir.path());
+        fs::write(dir.path().join("A-001_平面図.pdf"), b"v1").unwrap();
+        fs::write(dir.path().join("S-001_伏図.pdf"), b"s1").unwrap();
+        let oid = commit(dir.path(), "初回コミット", "user-a").unwrap();
+
+        let filenames = drawings_at_commit(dir.path(), &oid.to_string()).unwrap();
+
+        assert_eq!(filenames.len(), 2);
+        assert!(filenames.contains(&"A-001_平面図.pdf".to_string()));
+        assert!(filenames.contains(&"S-001_伏図.pdf".to_string()));
+    }
+
+    #[test]
+    fn drawings_at_commit_ignores_non_pdf_files() {
+        let dir = tempdir().unwrap();
+        make_repo(dir.path());
+        fs::write(dir.path().join("A-001_平面図.pdf"), b"v1").unwrap();
+        fs::write(dir.path().join("notes.txt"), b"text").unwrap();
+        let oid = commit(dir.path(), "初回コミット", "user-a").unwrap();
+
+        let filenames = drawings_at_commit(dir.path(), &oid.to_string()).unwrap();
+
+        assert_eq!(filenames.len(), 1);
+        assert!(filenames.contains(&"A-001_平面図.pdf".to_string()));
+    }
+
+    #[test]
+    fn drawings_at_commit_reflects_state_at_that_point_in_time() {
+        let dir = tempdir().unwrap();
+        make_repo(dir.path());
+        fs::write(dir.path().join("A-001_平面図.pdf"), b"v1").unwrap();
+        let oid_first = commit(dir.path(), "初回コミット", "user-a").unwrap();
+        fs::write(dir.path().join("S-001_伏図.pdf"), b"s1").unwrap();
+        commit(dir.path(), "2回目コミット", "user-a").unwrap();
+
+        let filenames = drawings_at_commit(dir.path(), &oid_first.to_string()).unwrap();
+
+        assert_eq!(filenames.len(), 1);
+        assert!(filenames.contains(&"A-001_平面図.pdf".to_string()));
+    }
 }
