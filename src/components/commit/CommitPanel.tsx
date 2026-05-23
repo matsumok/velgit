@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useGetCommitHistory } from "../../api/commitHistory";
-import { useGenerateDiff } from "../../api/generateDiff";
 import type { ChangeType, PendingChange } from "../../api/pendingChanges";
 import {
   useCommitChanges,
   useGetPendingChanges,
 } from "../../api/pendingChanges";
+import { useWorkingCopyDiff } from "../../hooks/useDiffSelection";
 import { cn } from "../../lib/utils";
 import { useAppStore } from "../../store/useAppStore";
 import { DiffView } from "../layout/DiffView";
@@ -140,11 +140,11 @@ export function CommitPanel() {
   );
   const [overrides, setOverrides] = useState<Set<string>>(new Set());
   const {
-    mutate: generateDiff,
-    isPending: isDiffLoading,
+    selectFile,
+    diffResult,
+    isLoading: isDiffLoading,
     error: diffError,
-    data: diffResult,
-  } = useGenerateDiff();
+  } = useWorkingCopyDiff();
 
   const { data: history } = useGetCommitHistory();
   const headOid = history?.[0]?.oid ?? null;
@@ -174,7 +174,7 @@ export function CommitPanel() {
   function handleSelectChange(c: PendingChange) {
     setSelectedChange(c);
     if (!headOid) return;
-    generateDiff({ filename: c.filename, oidA: headOid });
+    selectFile(c.filename, headOid);
   }
 
   return (

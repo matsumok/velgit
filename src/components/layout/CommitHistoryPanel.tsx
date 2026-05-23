@@ -1,6 +1,5 @@
-import { useState } from "react";
 import { useGetCommitHistory } from "../../api/commitHistory";
-import { useGenerateDiff } from "../../api/generateDiff";
+import { useCommitPairDiff } from "../../hooks/useDiffSelection";
 import { cn } from "../../lib/utils";
 import { useAppStore } from "../../store/useAppStore";
 import { DiffView } from "./DiffView";
@@ -25,14 +24,12 @@ export function CommitHistoryPanel() {
   const selectedDrawing = useAppStore((s) => s.selectedDrawing);
   const { data: entries, isLoading } = useGetCommitHistory();
   const {
-    mutate: generateDiff,
-    isPending,
+    selectCommit,
+    isCommitSelected,
+    diffResult,
+    isLoading: isPending,
     error,
-    data: diffResult,
-  } = useGenerateDiff();
-  const [selectedOids, setSelectedOids] = useState<[string, string] | null>(
-    null,
-  );
+  } = useCommitPairDiff(selectedDrawing ?? "");
 
   if (!selectedDrawing) {
     return (
@@ -41,8 +38,6 @@ export function CommitHistoryPanel() {
       </div>
     );
   }
-
-  const drawing = selectedDrawing;
 
   if (isLoading) {
     return (
@@ -63,21 +58,6 @@ export function CommitHistoryPanel() {
     );
   }
 
-  function handleSelectCommit(oid: string) {
-    if (!selectedOids) {
-      setSelectedOids([oid, oid]);
-      return;
-    }
-    const [oidA] = selectedOids;
-    const pair: [string, string] = [oidA, oid];
-    setSelectedOids(pair);
-    generateDiff({ filename: drawing, oidA: pair[0], oidB: pair[1] });
-  }
-
-  function isSelected(oid: string) {
-    return selectedOids?.[0] === oid || selectedOids?.[1] === oid;
-  }
-
   return (
     <div className="p-4">
       <p className="text-xs text-muted-foreground mb-1">{selectedDrawing}</p>
@@ -91,11 +71,11 @@ export function CommitHistoryPanel() {
               type="button"
               className={cn(
                 "w-full text-left rounded border p-3 text-sm cursor-pointer hover:bg-muted transition-colors",
-                isSelected(entry.oid)
+                isCommitSelected(entry.oid)
                   ? "border-primary bg-primary/5"
                   : "border-border",
               )}
-              onClick={() => handleSelectCommit(entry.oid)}
+              onClick={() => selectCommit(entry.oid)}
             >
               <p className="font-medium">{entry.message}</p>
               <p className="text-xs text-muted-foreground mt-1">
