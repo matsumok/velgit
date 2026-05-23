@@ -130,6 +130,46 @@ pub fn commit_history(repo_path: &Path, filename: &str) -> Result<Vec<CommitEntr
     Ok(entries)
 }
 
+pub fn project_commits(repo_path: &Path) -> Result<Vec<CommitEntry>, git2::Error> {
+    ensure_safe_directory(repo_path);
+    let repo = git2::Repository::open(repo_path)?;
+    let mut walk = repo.revwalk()?;
+    walk.push_head().ok();
+    walk.set_sorting(git2::Sort::TIME)?;
+
+    let mut entries = Vec::new();
+    for oid in walk {
+        let oid = oid?;
+        let commit = repo.find_commit(oid)?;
+        entries.push(CommitEntry {
+            oid: oid.to_string(),
+            message: commit.message().unwrap_or("").trim().to_string(),
+            author: commit.author().name().unwrap_or("").to_string(),
+            timestamp: commit.time().seconds(),
+        });
+    }
+    Ok(entries)
+}
+
+pub fn drawings_at_commit(repo_path: &Path, oid_str: &str) -> Result<Vec<String>, git2::Error> {
+    ensure_safe_directory(repo_path);
+    let repo = git2::Repository::open(repo_path)?;
+    let oid = git2::Oid::from_str(oid_str).map_err(|e| git2::Error::from_str(&e.to_string()))?;
+    let commit = repo.find_commit(oid)?;
+    let tree = commit.tree()?;
+
+    let mut filenames = Vec::new();
+    tree.walk(git2::TreeWalkMode::PreOrder, |_, entry| {
+        if let Ok(name) = entry.name() {
+            if name.ends_with(".pdf") {
+                filenames.push(name.to_string());
+            }
+        }
+        git2::TreeWalkResult::Ok
+    })?;
+    Ok(filenames)
+}
+
 #[derive(Debug, PartialEq)]
 pub enum ChangeKind {
     New,

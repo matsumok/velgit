@@ -41,6 +41,8 @@ pub fn run() {
             commands::get_pending_changes,
             commands::commit_changes,
             commands::get_commit_history,
+            commands::get_project_commits,
+            commands::get_drawings_at_commit,
             commands::get_pdf_image,
             commands::generate_diff,
             commands::create_release,

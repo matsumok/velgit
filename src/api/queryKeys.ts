@@ -5,4 +5,7 @@ export const queryKeys = {
   releases: (project: string) => ["releases", project] as const,
   releaseDrawings: (releaseId: number) =>
     ["release_drawings", releaseId] as const,
+  projectCommits: (project: string) => ["project_commits", project] as const,
+  drawingsAtCommit: (project: string, oid: string) =>
+    ["drawings_at_commit", project, oid] as const,
 };

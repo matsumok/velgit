@@ -201,6 +201,26 @@ pub fn get_commit_history(filename: String, state: State<'_, AppState>) -> Resul
         .map(|entries| entries.into_iter().map(CommitEntryDto::from).collect())
 }
 
+#[tauri::command]
+pub fn get_project_commits(state: State<'_, AppState>) -> Result<Vec<CommitEntryDto>, String> {
+    let repo_path = state.repo_path.lock().unwrap().clone();
+    let Some(path) = repo_path else {
+        return Ok(vec![]);
+    };
+    repository::project_commits(&path)
+        .map_err(|e| e.to_string())
+        .map(|entries| entries.into_iter().map(CommitEntryDto::from).collect())
+}
+
+#[tauri::command]
+pub fn get_drawings_at_commit(oid: String, state: State<'_, AppState>) -> Result<Vec<String>, String> {
+    let repo_path = state.repo_path.lock().unwrap().clone();
+    let Some(path) = repo_path else {
+        return Ok(vec![]);
+    };
+    repository::drawings_at_commit(&path, &oid).map_err(|e| e.to_string())
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GenerateDiffResult {
