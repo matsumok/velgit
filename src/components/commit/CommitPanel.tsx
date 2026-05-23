@@ -114,7 +114,7 @@ function ChangeGroup({
       <p className="text-xs text-muted-foreground mb-1">
         {STATUS_LABEL[status] ?? status}
       </p>
-      <ul className="space-y-0.5">
+      <ul className="space-y-1">
         {changes.map((c) => (
           <PendingChangeItem
             key={c.filename}

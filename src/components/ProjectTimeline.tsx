@@ -18,7 +18,7 @@ function TimelineDot({ selected }: { selected: boolean }) {
   return (
     <span
       className={cn(
-        "absolute left-0 -translate-x-1/2 top-3.5 size-2.5 rounded-full border-2 shrink-0",
+        "absolute left-0 -translate-x-1/2 top-3 size-3 rounded-full border-2 shrink-0",
         selected
           ? "bg-primary border-primary"
           : "bg-background border-muted-foreground/50",
@@ -70,7 +70,7 @@ function CommitItem({
     >
       <TimelineDot selected={selected} />
       <p className="text-xs truncate">{entry.message}</p>
-      <p className="text-xs text-muted-foreground mt-0.5">
+      <p className="text-xs text-muted-foreground mt-1">
         {entry.author} · {formatDate(entry.timestamp)}
       </p>
     </button>
@@ -84,14 +84,14 @@ function ReleaseItem({
 }) {
   return (
     <div className="relative pl-5 pr-3 py-2">
-      <span className="absolute left-0 -translate-x-1/2 top-3.5 size-2.5 rounded-full bg-background border-2 border-muted-foreground/30 shrink-0" />
-      <div className="flex items-center gap-1.5 flex-wrap">
+      <span className="absolute left-0 -translate-x-1/2 top-3 size-3 rounded-full bg-background border-2 border-muted-foreground/30 shrink-0" />
+      <div className="flex items-center gap-2 flex-wrap">
         <Badge variant="secondary" className="text-xs">
           {entry.kind === "external" ? "社外" : "社内"}
         </Badge>
         <span className="text-xs truncate">{entry.name}</span>
       </div>
-      <p className="text-xs text-muted-foreground mt-0.5">
+      <p className="text-xs text-muted-foreground mt-1">
         {formatDate(entry.timestamp)}
       </p>
     </div>

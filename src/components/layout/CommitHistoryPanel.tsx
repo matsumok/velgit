@@ -123,7 +123,7 @@ export function CommitHistoryPanel() {
                     )}
                   >
                     <p className="truncate font-medium">{commit.message}</p>
-                    <p className="text-muted-foreground mt-0.5">
+                    <p className="text-muted-foreground mt-1">
                       {commit.author} · {formatDate(commit.timestamp)}
                     </p>
                   </button>

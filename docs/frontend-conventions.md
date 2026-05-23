@@ -22,6 +22,18 @@ Do not use arbitrary value notation. Use design tokens and the Tailwind scale in
 <div className="w-60 h-full text-blue-500" />
 ```
 
+### No fractional scale values
+
+Do not use fractional steps in the Tailwind spacing/sizing scale (e.g. `1.5`, `2.5`, `3.5`). Use whole-number steps only.
+
+```tsx
+// Bad
+<div className="top-3.5 gap-2.5 size-1.5" />
+
+// Good
+<div className="top-3 gap-2 size-2" />
+```
+
 ### Colors via CSS variables only
 
 Use semantic color tokens defined as CSS variables. Do not hardcode color values.
