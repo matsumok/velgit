@@ -146,7 +146,13 @@ export function CommitHistoryPanel() {
             <DiffView
               imageUrl={diffResult?.url ?? null}
               isLoading={diffLoading}
-              error={diffError instanceof Error ? diffError.message : diffError ? String(diffError) : null}
+              error={
+                diffError instanceof Error
+                  ? diffError.message
+                  : diffError
+                    ? String(diffError)
+                    : null
+              }
             />
           </div>
         ) : previewLoading ? (
