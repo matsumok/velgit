@@ -226,14 +226,32 @@ pub fn pending_changes(repo_path: &Path) -> Result<Vec<PendingChange>, git2::Err
     Ok(changes)
 }
 
-pub fn commit(repo_path: &Path, message: &str, author: &str) -> Result<git2::Oid, git2::Error> {
+pub fn commit(
+    repo_path: &Path,
+    message: &str,
+    author: &str,
+    included_files: &[String],
+) -> Result<git2::Oid, git2::Error> {
     if message.is_empty() {
         return Err(git2::Error::from_str("commit message must not be empty"));
     }
     ensure_safe_directory(repo_path);
     let repo = git2::Repository::open(repo_path)?;
     let mut index = repo.index()?;
-    index.add_all(["*"].iter(), git2::IndexAddOption::DEFAULT, None)?;
+
+    // Reset index to HEAD so only the selected files are staged
+    if let Ok(head) = repo.head() {
+        let tree = head.peel_to_tree()?;
+        index.read_tree(&tree)?;
+    }
+    for filename in included_files {
+        let full_path = repo_path.join(filename);
+        if full_path.exists() {
+            index.add_path(std::path::Path::new(filename))?;
+        } else {
+            let _ = index.remove_path(std::path::Path::new(filename));
+        }
+    }
     index.write()?;
     let tree_oid = index.write_tree()?;
     let tree = repo.find_tree(tree_oid)?;
@@ -254,6 +272,14 @@ mod tests {
 
     fn make_repo(dir: &std::path::Path) {
         git2::Repository::init(dir).unwrap();
+    }
+
+    // Test helper: commit all current pending changes (PDFs only).
+    fn commit(dir: &std::path::Path, message: &str, author: &str) -> Result<git2::Oid, git2::Error> {
+        let changes = pending_changes(dir)
+            .map_err(|e| git2::Error::from_str(&e.to_string()))?;
+        let files: Vec<String> = changes.iter().map(|c| c.filename.clone()).collect();
+        super::commit(dir, message, author, &files)
     }
 
     #[test]

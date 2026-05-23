@@ -148,7 +148,7 @@ pub fn get_pending_changes(state: State<'_, AppState>) -> Result<Vec<PendingChan
 #[tauri::command]
 pub async fn commit_changes(
     message: String,
-    overrides: Vec<String>,
+    included_files: Vec<String>,
     created_by: String,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
@@ -157,28 +157,30 @@ pub async fn commit_changes(
         return Err("ワーキングフォルダが選択されていません".to_string());
     };
 
-    let pending = repository::pending_changes(&path).map_err(|e| e.to_string())?;
+    if included_files.is_empty() {
+        return Err("コミット対象のファイルが選択されていません".to_string());
+    }
 
-    let oid = repository::commit(&path, &message, &created_by)
+    let pending = repository::pending_changes(&path).map_err(|e| e.to_string())?;
+    let pending_map: std::collections::HashMap<_, _> =
+        pending.iter().map(|c| (c.filename.as_str(), c)).collect();
+
+    let oid = repository::commit(&path, &message, &created_by, &included_files)
         .map_err(|e| e.to_string())?;
 
     let pool = state.db.lock().unwrap().as_ref().map(|db| db.0.clone());
     if let Some(pool) = pool {
-        let records: Vec<CommitFileRecord> = pending
+        let records: Vec<CommitFileRecord> = included_files
             .iter()
-            .map(|c| {
-                let overridden = overrides.contains(&c.filename);
-                let change_type = if overridden {
-                    "meaningful".to_string()
-                } else {
-                    match repository::classify_change(&path, &c.filename, &c.status) {
-                        repository::ChangeType::None => "none",
-                        repository::ChangeType::Minor => "minor",
-                        repository::ChangeType::Meaningful => "meaningful",
-                    }
-                    .to_string()
-                };
-                CommitFileRecord { filename: c.filename.clone(), change_type, overridden }
+            .filter_map(|filename| {
+                let c = pending_map.get(filename.as_str())?;
+                let change_type = match repository::classify_change(&path, &c.filename, &c.status) {
+                    repository::ChangeType::None => "none",
+                    repository::ChangeType::Minor => "minor",
+                    repository::ChangeType::Meaningful => "meaningful",
+                }
+                .to_string();
+                Some(CommitFileRecord { filename: c.filename.clone(), change_type, overridden: false })
             })
             .collect();
         let db = DbPool(pool);
