@@ -27,13 +27,13 @@ export function useCommitChanges() {
   return useMutation({
     mutationFn: ({
       message,
-      overrides,
+      includedFiles,
       createdBy,
     }: {
       message: string;
-      overrides: string[];
+      includedFiles: string[];
       createdBy: string;
-    }) => invoke<void>("commit_changes", { message, overrides, createdBy }),
+    }) => invoke<void>("commit_changes", { message, includedFiles, createdBy }),
     onSuccess: () => {
       if (!selectedProject) return;
       queryClient.invalidateQueries({

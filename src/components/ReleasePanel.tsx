@@ -1,35 +1,23 @@
 import { useState } from "react";
-import { useGetDrawings } from "../api/drawings";
 import { useCreateRelease } from "../api/releases";
 import { cn } from "../lib/utils";
 import { useAppStore } from "../store/useAppStore";
 
-export function ReleasePanel() {
-  const { data: drawings } = useGetDrawings();
+export function ReleasePanel({
+  selectedFilenames,
+  onReleaseSuccess,
+}: {
+  selectedFilenames: string[];
+  onReleaseSuccess: () => void;
+}) {
   const { mutateAsync, isPending } = useCreateRelease();
   const username = useAppStore((s) => s.username);
-
-  const allFilenames = (drawings ?? []).map((d) => d.filename);
 
   const [name, setName] = useState("");
   const [kind, setKind] = useState<"internal" | "external">("internal");
   const [recipient, setRecipient] = useState("");
-  const [deselected, setDeselected] = useState<Set<string>>(new Set());
 
-  const selectedFilenames = allFilenames.filter((f) => !deselected.has(f));
   const isDisabled = !name.trim() || selectedFilenames.length === 0;
-
-  function toggleFilename(filename: string) {
-    setDeselected((prev) => {
-      const next = new Set(prev);
-      if (next.has(filename)) {
-        next.delete(filename);
-      } else {
-        next.add(filename);
-      }
-      return next;
-    });
-  }
 
   async function handleSubmit() {
     await mutateAsync({
@@ -42,7 +30,7 @@ export function ReleasePanel() {
     setName("");
     setKind("internal");
     setRecipient("");
-    setDeselected(new Set());
+    onReleaseSuccess();
   }
 
   return (
@@ -109,25 +97,10 @@ export function ReleasePanel() {
           />
         </div>
 
-        {allFilenames.length > 0 && (
-          <div>
-            <p className="text-xs text-muted-foreground mb-1">図面</p>
-            <ul className="space-y-1">
-              {allFilenames.map((filename) => (
-                <li key={filename}>
-                  <label className="flex items-center gap-2 text-xs">
-                    <input
-                      type="checkbox"
-                      checked={!deselected.has(filename)}
-                      onChange={() => toggleFilename(filename)}
-                      aria-label={filename}
-                    />
-                    {filename}
-                  </label>
-                </li>
-              ))}
-            </ul>
-          </div>
+        {selectedFilenames.length > 0 && (
+          <p className="text-xs text-muted-foreground">
+            対象図面: {selectedFilenames.length}枚
+          </p>
         )}
 
         <button

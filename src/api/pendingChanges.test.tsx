@@ -29,31 +29,31 @@ describe("useCommitChanges", () => {
     await act(async () => {
       await result.current.mutateAsync({
         message: "テストコミット",
-        overrides: [],
+        includedFiles: [],
         createdBy: "山田太郎",
       });
     });
     expect(vi.mocked(invoke)).toHaveBeenCalledWith("commit_changes", {
       message: "テストコミット",
-      overrides: [],
+      includedFiles: [],
       createdBy: "山田太郎",
     });
   });
 
-  it("overridesを正しく渡す", async () => {
+  it("includedFilesを正しく渡す", async () => {
     const { result } = renderHook(() => useCommitChanges(), {
       wrapper: createWrapper(),
     });
     await act(async () => {
       await result.current.mutateAsync({
         message: "変更",
-        overrides: ["図面A.pdf", "図面B.pdf"],
+        includedFiles: ["図面A.pdf", "図面B.pdf"],
         createdBy: "鈴木花子",
       });
     });
     expect(vi.mocked(invoke)).toHaveBeenCalledWith("commit_changes", {
       message: "変更",
-      overrides: ["図面A.pdf", "図面B.pdf"],
+      includedFiles: ["図面A.pdf", "図面B.pdf"],
       createdBy: "鈴木花子",
     });
   });

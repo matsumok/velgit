@@ -52,20 +52,11 @@ function PendingChangeItem({
   change,
   onSelect,
   isSelected,
-  isOverridden,
-  onOverride,
 }: {
   change: PendingChange;
   onSelect: (c: PendingChange) => void;
   isSelected: boolean;
-  isOverridden: boolean;
-  onOverride: (filename: string) => void;
 }) {
-  const effectiveType: ChangeType = isOverridden
-    ? "meaningful"
-    : change.changeType;
-  const canOverride = change.changeType === "minor" && !isOverridden;
-
   return (
     <li>
       <button
@@ -77,17 +68,7 @@ function PendingChangeItem({
         onClick={() => onSelect(change)}
       >
         <span className="flex-1 truncate">{change.filename}</span>
-        <ChangeBadge
-          changeType={effectiveType}
-          onClick={
-            canOverride
-              ? (e) => {
-                  e.stopPropagation();
-                  onOverride(change.filename);
-                }
-              : undefined
-          }
-        />
+        <ChangeBadge changeType={change.changeType} />
       </button>
     </li>
   );
@@ -98,15 +79,11 @@ function ChangeGroup({
   changes,
   onSelect,
   selectedFilename,
-  overrides,
-  onOverride,
 }: {
   status: string;
   changes: PendingChange[];
   onSelect: (c: PendingChange) => void;
   selectedFilename: string | null;
-  overrides: Set<string>;
-  onOverride: (filename: string) => void;
 }) {
   if (changes.length === 0) return null;
   return (
@@ -121,8 +98,6 @@ function ChangeGroup({
             change={c}
             onSelect={onSelect}
             isSelected={selectedFilename === c.filename}
-            isOverridden={overrides.has(c.filename)}
-            onOverride={onOverride}
           />
         ))}
       </ul>
@@ -130,7 +105,13 @@ function ChangeGroup({
   );
 }
 
-export function CommitPanel() {
+export function CommitPanel({
+  selectedFilenames,
+  onCommitSuccess,
+}: {
+  selectedFilenames: string[];
+  onCommitSuccess: () => void;
+}) {
   const { data: changes } = useGetPendingChanges();
   const { mutate: commitChanges, isPending, error } = useCommitChanges();
   const username = useAppStore((s) => s.username);
@@ -138,7 +119,6 @@ export function CommitPanel() {
   const [selectedChange, setSelectedChange] = useState<PendingChange | null>(
     null,
   );
-  const [overrides, setOverrides] = useState<Set<string>>(new Set());
   const {
     selectFile,
     diffResult,
@@ -154,18 +134,14 @@ export function CommitPanel() {
   const byStatus = (status: string) =>
     changes.filter((c) => c.status === status);
 
-  function handleOverride(filename: string) {
-    setOverrides((prev) => new Set([...prev, filename]));
-  }
-
   function handleCommit() {
-    if (!message.trim() || !username) return;
+    if (!message.trim() || !username || selectedFilenames.length === 0) return;
     commitChanges(
-      { message, overrides: [...overrides], createdBy: username },
+      { message, includedFiles: selectedFilenames, createdBy: username },
       {
         onSuccess: () => {
           setMessage("");
-          setOverrides(new Set());
+          onCommitSuccess();
         },
       },
     );
@@ -185,24 +161,18 @@ export function CommitPanel() {
         changes={byStatus("new")}
         onSelect={handleSelectChange}
         selectedFilename={selectedChange?.filename ?? null}
-        overrides={overrides}
-        onOverride={handleOverride}
       />
       <ChangeGroup
         status="modified"
         changes={byStatus("modified")}
         onSelect={handleSelectChange}
         selectedFilename={selectedChange?.filename ?? null}
-        overrides={overrides}
-        onOverride={handleOverride}
       />
       <ChangeGroup
         status="deleted"
         changes={byStatus("deleted")}
         onSelect={handleSelectChange}
         selectedFilename={selectedChange?.filename ?? null}
-        overrides={overrides}
-        onOverride={handleOverride}
       />
       <DiffView
         imageUrl={diffResult?.url ?? null}
@@ -220,14 +190,22 @@ export function CommitPanel() {
       <button
         type="button"
         onClick={handleCommit}
-        disabled={!message.trim() || isPending || !username}
+        disabled={
+          !message.trim() ||
+          isPending ||
+          !username ||
+          selectedFilenames.length === 0
+        }
         className={cn(
           "px-4 py-2 rounded text-sm bg-primary text-primary-foreground",
-          (!message.trim() || isPending || !username) &&
+          (!message.trim() ||
+            isPending ||
+            !username ||
+            selectedFilenames.length === 0) &&
             "opacity-50 cursor-not-allowed",
         )}
       >
-        {isPending ? "コミット中..." : "コミット"}
+        {isPending ? "コミット中..." : `コミット (${selectedFilenames.length})`}
       </button>
     </div>
   );

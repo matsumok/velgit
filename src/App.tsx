@@ -1,10 +1,9 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { listen } from "@tauri-apps/api/event";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useGetDrawings } from "./api/drawings";
 import { useGetPendingChanges } from "./api/pendingChanges";
 import { useInitProject } from "./api/project";
-import { resolveDrawingStatuses } from "./lib/drawingStatus";
 import { useGetDrawingsAtCommit } from "./api/projectCommits";
 import { queryKeys } from "./api/queryKeys";
 import { CommitPanel } from "./components/commit/CommitPanel";
@@ -15,6 +14,8 @@ import { ReleasePanel } from "./components/ReleasePanel";
 import { UsernameGate } from "./components/UsernameGate";
 import { UsernameSection } from "./components/UsernameSection";
 import { Badge } from "./components/ui/badge";
+import { resolveDrawingStatuses } from "./lib/drawingStatus";
+import { useDrawingSelection } from "./lib/useDrawingSelection";
 import { cn } from "./lib/utils";
 import { useAppStore } from "./store/useAppStore";
 
@@ -43,20 +44,31 @@ const STATUS_COLOR = {
   unchanged: "",
 } as const;
 
-function DrawingListContent() {
+function DrawingListContent({
+  isSelected,
+  onToggle,
+  showCheckboxes,
+}: {
+  isSelected: (filename: string) => boolean;
+  onToggle: (filename: string) => void;
+  showCheckboxes: boolean;
+}) {
   const { selectedCommitOid, setSelectedDrawing } = useAppStore();
   const { data: headDrawings = [] } = useGetDrawings();
   const { data: pastDrawings } = useGetDrawingsAtCommit(selectedCommitOid);
   const { data: pendingChanges = [] } = useGetPendingChanges();
 
-  const items =
-    selectedCommitOid === "HEAD"
-      ? resolveDrawingStatuses(headDrawings, pendingChanges)
-      : (pastDrawings ?? []).map((filename) => ({
-          filename,
-          status: "unchanged" as const,
-          isMinor: false,
-        }));
+  const items = useMemo(
+    () =>
+      selectedCommitOid === "HEAD"
+        ? resolveDrawingStatuses(headDrawings, pendingChanges)
+        : (pastDrawings ?? []).map((filename) => ({
+            filename,
+            status: "unchanged" as const,
+            isMinor: false,
+          })),
+    [selectedCommitOid, headDrawings, pastDrawings, pendingChanges],
+  );
 
   return (
     <div className="flex-1 overflow-y-auto p-4">
@@ -65,21 +77,34 @@ function DrawingListContent() {
         <ul className="space-y-1">
           {items.map(({ filename, status, isMinor }) => (
             <li key={filename}>
-              <button
-                type="button"
+              <div
                 className={cn(
-                  "w-full text-left text-sm px-2 py-1 rounded hover:bg-muted cursor-pointer flex items-center gap-2",
+                  "flex items-center gap-2 text-sm px-2 py-1 rounded hover:bg-muted",
                   STATUS_COLOR[status],
                 )}
-                onClick={() => setSelectedDrawing(filename)}
               >
-                <span className="flex-1 truncate">{filename}</span>
+                {showCheckboxes && status !== "unchanged" && (
+                  <input
+                    type="checkbox"
+                    checked={isSelected(filename)}
+                    onChange={() => onToggle(filename)}
+                    aria-label={filename}
+                    className="shrink-0"
+                  />
+                )}
+                <button
+                  type="button"
+                  className="flex-1 text-left truncate cursor-pointer"
+                  onClick={() => setSelectedDrawing(filename)}
+                >
+                  {filename}
+                </button>
                 {isMinor && (
                   <Badge variant="secondary" className="shrink-0 text-xs">
                     ~
                   </Badge>
                 )}
-              </button>
+              </div>
             </li>
           ))}
         </ul>
@@ -90,19 +115,24 @@ function DrawingListContent() {
   );
 }
 
-function ActionArea() {
-  const selectedCommitOid = useAppStore((s) => s.selectedCommitOid);
-  const { data: changes } = useGetPendingChanges();
-
-  if (selectedCommitOid !== "HEAD") return null;
-
-  if (changes && changes.length > 0) return <CommitPanel />;
-  return <ReleasePanel />;
-}
-
 function CenterPane() {
-  const { selectedProject } = useAppStore();
+  const { selectedProject, selectedCommitOid } = useAppStore();
   const { error, loading, openFolder } = useInitProject();
+  const { data: changes = [] } = useGetPendingChanges();
+  const { data: headDrawings = [] } = useGetDrawings();
+
+  const isCommitMode = selectedCommitOid === "HEAD" && changes.length > 0;
+  const isReleaseMode = selectedCommitOid === "HEAD" && changes.length === 0;
+
+  const selectableFilenames = useMemo(
+    () =>
+      isCommitMode
+        ? changes.map((c) => c.filename)
+        : headDrawings.map((d) => d.filename),
+    [isCommitMode, changes, headDrawings],
+  );
+
+  const selection = useDrawingSelection(selectableFilenames);
 
   if (!selectedProject) {
     return (
@@ -127,8 +157,23 @@ function CenterPane() {
 
   return (
     <div className="flex flex-col h-full">
-      <DrawingListContent />
-      <ActionArea />
+      <DrawingListContent
+        isSelected={selection.isSelected}
+        onToggle={selection.toggle}
+        showCheckboxes={isCommitMode || isReleaseMode}
+      />
+      {selectedCommitOid === "HEAD" &&
+        (isCommitMode ? (
+          <CommitPanel
+            selectedFilenames={selection.selectedFilenames}
+            onCommitSuccess={selection.reset}
+          />
+        ) : (
+          <ReleasePanel
+            selectedFilenames={selection.selectedFilenames}
+            onReleaseSuccess={selection.reset}
+          />
+        ))}
     </div>
   );
 }
