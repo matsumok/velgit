@@ -8,6 +8,7 @@ export interface CommitEntry {
   message: string;
   author: string;
   timestamp: number;
+  changeType: string | null;
 }
 
 export function useGetCommitHistory() {

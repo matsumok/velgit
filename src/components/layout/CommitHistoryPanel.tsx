@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useGetCommitHistory } from "../../api/commitHistory";
 import type { GenerateDiffResult } from "../../api/generateDiff";
 import { useDrawingPreview } from "../../api/pdfImage";
@@ -47,7 +47,7 @@ function useDiffAtCommit(
         oidA: historyOid,
         oidB: contextOid,
       }),
-    enabled: !!filename && !!historyOid,
+    enabled: !!filename && !!historyOid && !!contextOid,
     staleTime: Number.POSITIVE_INFINITY,
   });
 }
@@ -67,31 +67,25 @@ export function CommitHistoryPanel() {
     setSelectedHistoryOid(null);
   }, [selectedDrawing, selectedCommitOid]);
 
-  const fileOidSet = new Set(fileCommits.map((c) => c.oid));
-
-  // Commits at or before selectedCommitOid (newest-first list, so slice from that index)
-  const cutCommits =
-    selectedCommitOid === "HEAD"
-      ? allCommits
-      : (() => {
-          const idx = allCommits.findIndex(
-            (c) => c.oid === selectedCommitOid,
-          );
-          return idx >= 0 ? allCommits.slice(idx) : allCommits;
-        })();
-
-  // Only file-relevant commits
-  const visibleCommits = cutCommits.filter((c) => fileOidSet.has(c.oid));
-
-  // Resolve HEAD to the latest commit OID for preview
+  // Resolve HEAD to actual latest commit OID
   const resolvedPreviewOid =
     selectedCommitOid === "HEAD"
       ? (allCommits[0]?.oid ?? null)
       : selectedCommitOid;
 
-  // For diff: oidB is null when viewing HEAD (= compare to working copy)
-  const diffContextOid =
-    selectedCommitOid === "HEAD" ? null : selectedCommitOid;
+  // Build set of OIDs at or before selectedCommitOid (for filtering fileCommits)
+  const cutOidSet = useMemo(() => {
+    if (selectedCommitOid === "HEAD") return null;
+    const idx = allCommits.findIndex((c) => c.oid === selectedCommitOid);
+    if (idx < 0) return new Set<string>();
+    return new Set(allCommits.slice(idx).map((c) => c.oid));
+  }, [allCommits, selectedCommitOid]);
+
+  // visibleCommits from fileCommits (has changeType), filtered by cut
+  const visibleCommits = useMemo(() => {
+    if (cutOidSet === null) return fileCommits;
+    return fileCommits.filter((c) => cutOidSet.has(c.oid));
+  }, [fileCommits, cutOidSet]);
 
   const { data: previewUrl, isLoading: previewLoading } = useDrawingPreview(
     selectedHistoryOid === null ? selectedDrawing : null,
@@ -105,7 +99,7 @@ export function CommitHistoryPanel() {
   } = useDiffAtCommit(
     selectedHistoryOid !== null ? selectedDrawing : null,
     selectedHistoryOid,
-    diffContextOid,
+    selectedHistoryOid !== null ? resolvedPreviewOid : null,
   );
 
   if (!selectedDrawing) {
@@ -139,6 +133,8 @@ export function CommitHistoryPanel() {
           <ul className="py-1">
             {visibleCommits.map((commit) => {
               const selected = selectedHistoryOid === commit.oid;
+              const isMinorChange =
+                commit.changeType === "none" || commit.changeType === "minor";
               return (
                 <li key={commit.oid}>
                   <button
@@ -149,6 +145,7 @@ export function CommitHistoryPanel() {
                     className={cn(
                       "w-full text-left px-3 py-2 text-xs hover:bg-muted/60 transition-colors",
                       selected && "bg-muted",
+                      isMinorChange && !selected && "opacity-40",
                     )}
                   >
                     <p className="truncate font-medium">{commit.message}</p>

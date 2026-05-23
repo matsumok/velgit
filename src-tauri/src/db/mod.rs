@@ -74,6 +74,44 @@ impl DbPool {
         Ok(rows)
     }
 
+    pub async fn update_commit_file_change_type(
+        &self,
+        commit_oid: &str,
+        filename: &str,
+        change_type: &str,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            "UPDATE commit_files SET change_type = ? WHERE commit_oid = ? AND filename = ? AND change_type_overridden = 0",
+        )
+        .bind(change_type)
+        .bind(commit_oid)
+        .bind(filename)
+        .execute(&self.0)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn get_change_types_for_file(
+        &self,
+        commit_oids: &[String],
+        filename: &str,
+    ) -> Result<std::collections::HashMap<String, String>, sqlx::Error> {
+        if commit_oids.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
+        let mut qb = sqlx::QueryBuilder::<sqlx::Sqlite>::new(
+            "SELECT commit_oid, change_type FROM commit_files WHERE commit_oid IN (",
+        );
+        let mut sep = qb.separated(", ");
+        for oid in commit_oids {
+            sep.push_bind(oid.as_str());
+        }
+        qb.push(") AND filename = ");
+        qb.push_bind(filename);
+        let rows: Vec<(String, String)> = qb.build_query_as().fetch_all(&self.0).await?;
+        Ok(rows.into_iter().collect())
+    }
+
 }
 
 #[cfg(test)]

@@ -9,8 +9,8 @@ describe("mergeTimelineEntries", () => {
 
   it("コミット複数のとき新しい順に並ぶ", () => {
     const commits = [
-      { oid: "old", message: "古い", author: "A", timestamp: 100 },
-      { oid: "new", message: "新しい", author: "B", timestamp: 200 },
+      { oid: "old", message: "古い", author: "A", timestamp: 100, changeType: null },
+      { oid: "new", message: "新しい", author: "B", timestamp: 200, changeType: null },
     ];
     const result = mergeTimelineEntries(commits, []);
     expect(result[0]).toEqual({ type: "head" });
@@ -47,8 +47,8 @@ describe("mergeTimelineEntries", () => {
 
   it("コミットと図渡しがtimestamp降順でインターリーブされる", () => {
     const commits = [
-      { oid: "c1", message: "コミット1", author: "A", timestamp: 300 },
-      { oid: "c2", message: "コミット2", author: "B", timestamp: 100 },
+      { oid: "c1", message: "コミット1", author: "A", timestamp: 300, changeType: null },
+      { oid: "c2", message: "コミット2", author: "B", timestamp: 100, changeType: null },
     ];
     const releases = [
       {
@@ -79,7 +79,7 @@ describe("mergeTimelineEntries", () => {
 
   it("同じtimestampのとき図渡しがコミットより前に来る", () => {
     const commits = [
-      { oid: "c1", message: "コミット", author: "A", timestamp: 500 },
+      { oid: "c1", message: "コミット", author: "A", timestamp: 500, changeType: null },
     ];
     const releases = [
       {
@@ -100,7 +100,7 @@ describe("mergeTimelineEntries", () => {
 
   it("コミット1件のときHEADの後にコミットが続く", () => {
     const commits = [
-      { oid: "abc", message: "初回", author: "山田", timestamp: 1000 },
+      { oid: "abc", message: "初回", author: "山田", timestamp: 1000, changeType: null },
     ];
     const result = mergeTimelineEntries(commits, []);
     expect(result).toEqual([

@@ -27,11 +27,18 @@ pub struct CommitEntryDto {
     pub message: String,
     pub author: String,
     pub timestamp: i64,
+    pub change_type: Option<String>,
 }
 
 impl From<CommitEntry> for CommitEntryDto {
     fn from(e: CommitEntry) -> Self {
-        CommitEntryDto { oid: e.oid, message: e.message, author: e.author, timestamp: e.timestamp }
+        CommitEntryDto {
+            oid: e.oid,
+            message: e.message,
+            author: e.author,
+            timestamp: e.timestamp,
+            change_type: None,
+        }
     }
 }
 
@@ -145,12 +152,40 @@ pub fn get_pending_changes(state: State<'_, AppState>) -> Result<Vec<PendingChan
         })
 }
 
+fn compute_visual_change_type(repo_path: &std::path::Path, oid_str: &str, filename: &str) -> String {
+    (|| -> Option<String> {
+        let repo = git2::Repository::open(repo_path).ok()?;
+        let oid = git2::Oid::from_str(oid_str).ok()?;
+        let commit = repo.find_commit(oid).ok()?;
+
+        let tree = commit.tree().ok()?;
+        let new_blob_id = tree.get_name(filename)?.id();
+        let pdf_new = repo.find_blob(new_blob_id).ok()?.content().to_vec();
+
+        let parent = commit.parent(0).ok()?;
+        let parent_tree = parent.tree().ok()?;
+        let old_blob_id = parent_tree.get_name(filename)?.id();
+        let pdf_old = repo.find_blob(old_blob_id).ok()?.content().to_vec();
+
+        let rgba_new = pdf::rasterize_to_image(&pdf_new, 0).ok()?;
+        let rgba_old = pdf::rasterize_to_image(&pdf_old, 0).ok()?;
+
+        let result = diff::diff(&rgba_old, &rgba_new);
+        Some(match result.change_type {
+            diff::ChangeType::None => "none",
+            diff::ChangeType::Minor => "minor",
+            diff::ChangeType::Meaningful => "meaningful",
+        }.to_string())
+    })().unwrap_or_else(|| "meaningful".to_string())
+}
+
 #[tauri::command]
 pub async fn commit_changes(
     message: String,
     included_files: Vec<String>,
     created_by: String,
     state: State<'_, AppState>,
+    app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
     let repo_path = state.repo_path.lock().unwrap().clone();
     let Some(path) = repo_path else {
@@ -167,9 +202,11 @@ pub async fn commit_changes(
 
     let oid = repository::commit(&path, &message, &created_by, &included_files)
         .map_err(|e| e.to_string())?;
+    let oid_str = oid.to_string();
 
     let pool = state.db.lock().unwrap().as_ref().map(|db| db.0.clone());
-    if let Some(pool) = pool {
+    if let Some(pool) = &pool {
+        // 初期レコードをバイト比較結果で即時挿入（高速）
         let records: Vec<CommitFileRecord> = included_files
             .iter()
             .filter_map(|filename| {
@@ -183,24 +220,77 @@ pub async fn commit_changes(
                 Some(CommitFileRecord { filename: c.filename.clone(), change_type, overridden: false })
             })
             .collect();
-        let db = DbPool(pool);
-        db.insert_commit_files(&oid.to_string(), &records)
+        let db = DbPool(pool.clone());
+        db.insert_commit_files(&oid_str, &records)
             .await
             .map_err(|e| e.to_string())?;
+    }
+
+    // バックグラウンドでビジュアル差分を計算し change_type を更新
+    if let Some(pool) = pool {
+        let path_bg = path.clone();
+        let oid_bg = oid_str.clone();
+        let files_bg = included_files.clone();
+        let app_handle_bg = app_handle.clone();
+        tauri::async_runtime::spawn(async move {
+            use tauri::Emitter;
+            for filename in &files_bg {
+                let p = path_bg.clone();
+                let o = oid_bg.clone();
+                let f = filename.clone();
+                let change_type = tokio::task::spawn_blocking(move || {
+                    compute_visual_change_type(&p, &o, &f)
+                })
+                .await
+                .unwrap_or_else(|_| "meaningful".to_string());
+
+                let db = DbPool(pool.clone());
+                let _ = db.update_commit_file_change_type(&oid_bg, filename, &change_type).await;
+            }
+            let _ = app_handle_bg.emit("commit-classified", ());
+        });
     }
 
     Ok(())
 }
 
 #[tauri::command]
-pub fn get_commit_history(filename: String, state: State<'_, AppState>) -> Result<Vec<CommitEntryDto>, String> {
+pub async fn get_commit_history(
+    filename: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<CommitEntryDto>, String> {
     let repo_path = state.repo_path.lock().unwrap().clone();
     let Some(path) = repo_path else {
         return Ok(vec![]);
     };
-    repository::commit_history(&path, &filename)
-        .map_err(|e| e.to_string())
-        .map(|entries| entries.into_iter().map(CommitEntryDto::from).collect())
+    let pool = state.db.lock().unwrap().as_ref().map(|db| db.0.clone());
+
+    let entries = repository::commit_history(&path, &filename).map_err(|e| e.to_string())?;
+
+    let change_type_map = if let Some(pool) = pool {
+        let oids: Vec<String> = entries.iter().map(|e| e.oid.clone()).collect();
+        DbPool(pool)
+            .get_change_types_for_file(&oids, &filename)
+            .await
+            .unwrap_or_default()
+    } else {
+        std::collections::HashMap::new()
+    };
+
+    let dtos = entries
+        .into_iter()
+        .map(|e| {
+            let change_type = change_type_map.get(&e.oid).cloned();
+            CommitEntryDto {
+                oid: e.oid,
+                message: e.message,
+                author: e.author,
+                timestamp: e.timestamp,
+                change_type,
+            }
+        })
+        .collect();
+    Ok(dtos)
 }
 
 #[tauri::command]

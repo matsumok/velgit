@@ -219,9 +219,22 @@ function useThemeSync() {
   }, [theme]);
 }
 
+function useCommitClassifiedListener() {
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    const unlisten = listen("commit-classified", () => {
+      queryClient.invalidateQueries({ queryKey: ["commit_history"] });
+    });
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [queryClient]);
+}
+
 function App() {
   usePdfChangedListener();
   useThemeSync();
+  useCommitClassifiedListener();
   const isPolling = useWatcherState();
   return (
     <UsernameGate>
