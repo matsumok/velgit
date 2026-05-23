@@ -104,6 +104,11 @@ export function ProjectTimeline() {
   const { selectedCommitOid, setSelectedCommitOid, selectedProject } =
     useAppStore();
 
+  const entries = useMemo(
+    () => mergeTimelineEntries(commits, releases),
+    [commits, releases],
+  );
+
   if (!selectedProject) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -113,11 +118,6 @@ export function ProjectTimeline() {
       </div>
     );
   }
-
-  const entries = useMemo(
-    () => mergeTimelineEntries(commits, releases),
-    [commits, releases],
-  );
 
   return (
     <ScrollArea className="flex-1">
