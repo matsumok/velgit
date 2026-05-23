@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { vi, describe, it, expect, beforeEach } from "vitest";
-import { useListReleases, useGenerateBindPdf } from "../api/releases";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { useGenerateBindPdf, useListReleases } from "../api/releases";
 import { ReleaseHistoryPanel } from "./ReleaseHistoryPanel";
 
 const MOCK_RELEASES = [

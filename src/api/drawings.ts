@@ -1,6 +1,7 @@
-import { invoke } from "@tauri-apps/api/core";
 import { useQuery } from "@tanstack/react-query";
+import { invoke } from "@tauri-apps/api/core";
 import { useAppStore } from "../store/useAppStore";
+import { queryKeys } from "./queryKeys";
 
 export interface Drawing {
   filename: string;
@@ -10,7 +11,7 @@ export interface Drawing {
 export function useGetDrawings() {
   const selectedProject = useAppStore((s) => s.selectedProject);
   return useQuery<Drawing[]>({
-    queryKey: ["drawings", selectedProject],
+    queryKey: selectedProject ? queryKeys.drawings(selectedProject) : [],
     queryFn: () => invoke<Drawing[]>("get_drawings"),
     enabled: selectedProject !== null,
   });

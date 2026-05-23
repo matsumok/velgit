@@ -1,5 +1,5 @@
-import { invoke } from "@tauri-apps/api/core";
 import { useMutation } from "@tanstack/react-query";
+import { invoke } from "@tauri-apps/api/core";
 
 export interface GenerateDiffResult {
   changeType: "none" | "minor" | "meaningful";

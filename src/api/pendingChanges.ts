@@ -1,6 +1,7 @@
-import { invoke } from "@tauri-apps/api/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { invoke } from "@tauri-apps/api/core";
 import { useAppStore } from "../store/useAppStore";
+import { queryKeys } from "./queryKeys";
 
 export type ChangeStatus = "new" | "modified" | "deleted";
 export type ChangeType = "none" | "minor" | "meaningful";
@@ -14,7 +15,7 @@ export interface PendingChange {
 export function useGetPendingChanges() {
   const selectedProject = useAppStore((s) => s.selectedProject);
   return useQuery<PendingChange[]>({
-    queryKey: ["pending_changes", selectedProject],
+    queryKey: selectedProject ? queryKeys.pendingChanges(selectedProject) : [],
     queryFn: () => invoke<PendingChange[]>("get_pending_changes"),
     enabled: selectedProject !== null,
   });
@@ -22,6 +23,7 @@ export function useGetPendingChanges() {
 
 export function useCommitChanges() {
   const queryClient = useQueryClient();
+  const selectedProject = useAppStore((s) => s.selectedProject);
   return useMutation({
     mutationFn: ({
       message,
@@ -33,8 +35,13 @@ export function useCommitChanges() {
       createdBy: string;
     }) => invoke<void>("commit_changes", { message, overrides, createdBy }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["pending_changes"] });
-      queryClient.invalidateQueries({ queryKey: ["drawings"] });
+      if (!selectedProject) return;
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.pendingChanges(selectedProject),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.drawings(selectedProject),
+      });
     },
   });
 }

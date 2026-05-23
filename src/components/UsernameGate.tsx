@@ -24,6 +24,7 @@ export function UsernameGate({ children }: { children: React.ReactNode }) {
           onKeyDown={(e) => {
             if (e.key === "Enter" && input.trim()) setUsername(input.trim());
           }}
+          // biome-ignore lint/a11y/noAutofocus: modal dialog requires immediate focus
           autoFocus
         />
         <button

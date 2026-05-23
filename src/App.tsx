@@ -1,18 +1,19 @@
-import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { useQueryClient } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { useState, useEffect } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { cn } from "./lib/utils";
-import { ThreePaneLayout } from "./components/layout/ThreePaneLayout";
-import { useAppStore } from "./store/useAppStore";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { useEffect, useState } from "react";
 import { useGetDrawings } from "./api/drawings";
+import { queryKeys } from "./api/queryKeys";
 import { CommitPanel } from "./components/commit/CommitPanel";
 import { CommitHistoryPanel } from "./components/layout/CommitHistoryPanel";
+import { ThreePaneLayout } from "./components/layout/ThreePaneLayout";
+import { ReleaseHistoryPanel } from "./components/ReleaseHistoryPanel";
+import { ReleasePanel } from "./components/ReleasePanel";
 import { UsernameGate } from "./components/UsernameGate";
 import { UsernameSection } from "./components/UsernameSection";
-import { ReleasePanel } from "./components/ReleasePanel";
-import { ReleaseHistoryPanel } from "./components/ReleaseHistoryPanel";
+import { cn } from "./lib/utils";
+import { useAppStore } from "./store/useAppStore";
 
 function ProjectList() {
   const { selectedProject } = useAppStore();
@@ -45,6 +46,7 @@ function DrawingList() {
   const { data: drawings } = useGetDrawings();
   const queryClient = useQueryClient();
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs once on mount to validate persisted project
   useEffect(() => {
     if (!selectedProject) return;
     invoke<boolean>("is_initialized", { path: selectedProject }).then(
@@ -54,11 +56,14 @@ function DrawingList() {
           return;
         }
         invoke("init_working_folder", { path: selectedProject })
-          .then(() => queryClient.invalidateQueries({ queryKey: ["drawings"] }))
+          .then(() =>
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.drawings(selectedProject),
+            }),
+          )
           .catch(() => setSelectedProject(null));
       },
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleOpenFolder() {
@@ -104,12 +109,14 @@ function DrawingList() {
       {drawings && drawings.length > 0 ? (
         <ul className="space-y-1">
           {drawings.map((d) => (
-            <li
-              key={d.filename}
-              className="text-sm px-2 py-1 rounded hover:bg-muted cursor-pointer"
-              onClick={() => setSelectedDrawing(d.filename)}
-            >
-              {d.filename}
+            <li key={d.filename}>
+              <button
+                type="button"
+                className="w-full text-left text-sm px-2 py-1 rounded hover:bg-muted cursor-pointer"
+                onClick={() => setSelectedDrawing(d.filename)}
+              >
+                {d.filename}
+              </button>
             </li>
           ))}
         </ul>
@@ -134,15 +141,21 @@ function DrawingDetail() {
 
 function usePdfChangedListener() {
   const queryClient = useQueryClient();
+  const selectedProject = useAppStore((s) => s.selectedProject);
   useEffect(() => {
     const unlisten = listen("pdf-changed", () => {
-      queryClient.invalidateQueries({ queryKey: ["pending_changes"] });
-      queryClient.invalidateQueries({ queryKey: ["drawings"] });
+      if (!selectedProject) return;
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.pendingChanges(selectedProject),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.drawings(selectedProject),
+      });
     });
     return () => {
       unlisten.then((fn) => fn());
     };
-  }, [queryClient]);
+  }, [queryClient, selectedProject]);
 }
 
 function useWatcherState() {

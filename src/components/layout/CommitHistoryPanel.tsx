@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useGetCommitHistory } from "../../api/commitHistory";
 import { useGenerateDiff } from "../../api/generateDiff";
-import { useAppStore } from "../../store/useAppStore";
 import { cn } from "../../lib/utils";
+import { useAppStore } from "../../store/useAppStore";
 import { DiffView } from "./DiffView";
 
 function formatTimestamp(ts: number): string {
@@ -42,6 +42,8 @@ export function CommitHistoryPanel() {
     );
   }
 
+  const drawing = selectedDrawing;
+
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -69,7 +71,7 @@ export function CommitHistoryPanel() {
     const [oidA] = selectedOids;
     const pair: [string, string] = [oidA, oid];
     setSelectedOids(pair);
-    generateDiff({ filename: selectedDrawing!, oidA: pair[0], oidB: pair[1] });
+    generateDiff({ filename: drawing, oidA: pair[0], oidB: pair[1] });
   }
 
   function isSelected(oid: string) {
@@ -84,20 +86,22 @@ export function CommitHistoryPanel() {
       </p>
       <ul className="space-y-2 mb-4">
         {entries.map((entry) => (
-          <li
-            key={entry.oid}
-            className={cn(
-              "rounded border p-3 text-sm cursor-pointer hover:bg-muted transition-colors",
-              isSelected(entry.oid)
-                ? "border-primary bg-primary/5"
-                : "border-border",
-            )}
-            onClick={() => handleSelectCommit(entry.oid)}
-          >
-            <p className="font-medium">{entry.message}</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {entry.author} · {formatTimestamp(entry.timestamp)}
-            </p>
+          <li key={entry.oid}>
+            <button
+              type="button"
+              className={cn(
+                "w-full text-left rounded border p-3 text-sm cursor-pointer hover:bg-muted transition-colors",
+                isSelected(entry.oid)
+                  ? "border-primary bg-primary/5"
+                  : "border-border",
+              )}
+              onClick={() => handleSelectCommit(entry.oid)}
+            >
+              <p className="font-medium">{entry.message}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {entry.author} · {formatTimestamp(entry.timestamp)}
+              </p>
+            </button>
           </li>
         ))}
       </ul>

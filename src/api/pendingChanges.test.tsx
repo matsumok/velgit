@@ -1,7 +1,7 @@
-import { renderHook, act } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { vi, describe, it, expect, beforeEach } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
+import { act, renderHook } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useCommitChanges } from "./pendingChanges";
 
 vi.mock("@tauri-apps/api/core", () => ({

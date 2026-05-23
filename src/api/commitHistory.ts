@@ -1,6 +1,7 @@
-import { invoke } from "@tauri-apps/api/core";
 import { useQuery } from "@tanstack/react-query";
+import { invoke } from "@tauri-apps/api/core";
 import { useAppStore } from "../store/useAppStore";
+import { queryKeys } from "./queryKeys";
 
 export interface CommitEntry {
   oid: string;
@@ -12,7 +13,7 @@ export interface CommitEntry {
 export function useGetCommitHistory() {
   const selectedDrawing = useAppStore((s) => s.selectedDrawing);
   return useQuery<CommitEntry[]>({
-    queryKey: ["commit_history", selectedDrawing],
+    queryKey: selectedDrawing ? queryKeys.commitHistory(selectedDrawing) : [],
     queryFn: () =>
       invoke<CommitEntry[]>("get_commit_history", {
         filename: selectedDrawing,

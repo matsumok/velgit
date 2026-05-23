@@ -1,14 +1,14 @@
 import { useState } from "react";
-import { cn } from "../../lib/utils";
+import { useGetCommitHistory } from "../../api/commitHistory";
+import { useGenerateDiff } from "../../api/generateDiff";
+import type { ChangeType, PendingChange } from "../../api/pendingChanges";
 import {
   useCommitChanges,
   useGetPendingChanges,
 } from "../../api/pendingChanges";
-import type { PendingChange, ChangeType } from "../../api/pendingChanges";
-import { useGenerateDiff } from "../../api/generateDiff";
-import { DiffView } from "../layout/DiffView";
-import { useGetCommitHistory } from "../../api/commitHistory";
+import { cn } from "../../lib/utils";
 import { useAppStore } from "../../store/useAppStore";
+import { DiffView } from "../layout/DiffView";
 
 const STATUS_LABEL: Record<string, string> = {
   new: "新規",
@@ -32,18 +32,19 @@ function ChangeBadge({
   const label = CHANGE_BADGE[changeType];
   if (!label) return null;
   return (
-    <span
+    <button
+      type="button"
       className={cn(
         "ml-2 inline-flex items-center rounded px-1 text-xs font-mono",
         changeType === "meaningful"
           ? "bg-destructive/15 text-destructive"
           : "bg-muted-foreground/15 text-muted-foreground",
-        onClick && "cursor-pointer hover:opacity-70",
+        onClick ? "cursor-pointer hover:opacity-70" : "cursor-default",
       )}
       onClick={onClick}
     >
       {label}
-    </span>
+    </button>
   );
 }
 
@@ -66,25 +67,28 @@ function PendingChangeItem({
   const canOverride = change.changeType === "minor" && !isOverridden;
 
   return (
-    <li
-      className={cn(
-        "flex items-center text-sm px-2 py-1 rounded cursor-pointer hover:bg-muted/70",
-        isSelected ? "bg-muted" : "bg-muted/40",
-      )}
-      onClick={() => onSelect(change)}
-    >
-      <span className="flex-1 truncate">{change.filename}</span>
-      <ChangeBadge
-        changeType={effectiveType}
-        onClick={
-          canOverride
-            ? (e) => {
-                e.stopPropagation();
-                onOverride(change.filename);
-              }
-            : undefined
-        }
-      />
+    <li>
+      <button
+        type="button"
+        className={cn(
+          "flex items-center w-full text-left text-sm px-2 py-1 rounded cursor-pointer hover:bg-muted/70",
+          isSelected ? "bg-muted" : "bg-muted/40",
+        )}
+        onClick={() => onSelect(change)}
+      >
+        <span className="flex-1 truncate">{change.filename}</span>
+        <ChangeBadge
+          changeType={effectiveType}
+          onClick={
+            canOverride
+              ? (e) => {
+                  e.stopPropagation();
+                  onOverride(change.filename);
+                }
+              : undefined
+          }
+        />
+      </button>
     </li>
   );
 }

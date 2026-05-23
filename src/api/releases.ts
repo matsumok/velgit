@@ -1,6 +1,7 @@
-import { invoke } from "@tauri-apps/api/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { invoke } from "@tauri-apps/api/core";
 import { useAppStore } from "../store/useAppStore";
+import { queryKeys } from "./queryKeys";
 
 export interface ReleaseEntry {
   id: number;
@@ -16,7 +17,7 @@ export interface ReleaseEntry {
 export function useListReleases() {
   const selectedProject = useAppStore((s) => s.selectedProject);
   return useQuery<ReleaseEntry[]>({
-    queryKey: ["releases"],
+    queryKey: selectedProject ? queryKeys.releases(selectedProject) : [],
     queryFn: () => invoke<ReleaseEntry[]>("list_releases"),
     enabled: selectedProject !== null,
   });
@@ -24,7 +25,7 @@ export function useListReleases() {
 
 export function useGetReleaseDrawings(releaseId: number | null) {
   return useQuery<string[]>({
-    queryKey: ["release_drawings", releaseId],
+    queryKey: releaseId !== null ? queryKeys.releaseDrawings(releaseId) : [],
     queryFn: () => invoke<string[]>("get_release_drawings", { releaseId }),
     enabled: releaseId !== null,
   });
@@ -56,6 +57,7 @@ interface CreateReleaseParams {
 
 export function useCreateRelease() {
   const queryClient = useQueryClient();
+  const selectedProject = useAppStore((s) => s.selectedProject);
   return useMutation({
     mutationFn: (params: CreateReleaseParams) =>
       invoke<number>(
@@ -63,7 +65,10 @@ export function useCreateRelease() {
         params as unknown as Record<string, unknown>,
       ),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["releases"] });
+      if (!selectedProject) return;
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.releases(selectedProject),
+      });
     },
   });
 }
