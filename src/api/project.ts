@@ -2,11 +2,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { useEffect, useState } from "react";
-import { useAppStore } from "../store/useAppStore";
+import { useAppStore, type Job } from "../store/useAppStore";
 import { queryKeys } from "./queryKeys";
 
 export function useInitProject() {
-  const { selectedProject, setSelectedProject } = useAppStore();
+  const { selectedProject, setSelectedProject, jobs, addJob, selectJob } =
+    useAppStore();
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -45,7 +46,20 @@ export function useInitProject() {
     setError(null);
     try {
       await invoke("init_working_folder", { path });
-      setSelectedProject(path);
+      const existing = jobs.find((j) => j.path === path);
+      if (existing) {
+        selectJob(existing.id);
+      } else {
+        const folderName = path.split(/[\\/]/).pop() ?? path;
+        const job: Job = {
+          id: crypto.randomUUID(),
+          name: folderName,
+          path,
+          createdAt: Date.now(),
+        };
+        addJob(job);
+        selectJob(job.id);
+      }
     } catch (e) {
       setError(String(e));
     } finally {
