@@ -46,8 +46,14 @@ export function DrawingTable({
     () => Object.fromEntries(rows.map((r) => [r.filename, true])),
   );
 
-  // Reset to all-selected when row list changes (after commit / release)
+  // Reset to all-selected when row list changes (after commit / release).
+  // Skip the first run — useState initializer already set the correct initial state.
+  const isMountedRef = useRef(false);
   useEffect(() => {
+    if (!isMountedRef.current) {
+      isMountedRef.current = true;
+      return;
+    }
     setRowSelection(Object.fromEntries(rows.map((r) => [r.filename, true])));
     setActiveRow(null);
   }, [rows]);
