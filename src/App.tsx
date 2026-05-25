@@ -154,14 +154,18 @@ function useThemeSync() {
 
 function useCommitClassifiedListener() {
   const queryClient = useQueryClient();
+  const selectedProject = useAppStore((s) => s.selectedProject);
   useEffect(() => {
     const unlisten = listen("commit-classified", () => {
-      queryClient.invalidateQueries({ queryKey: ["commit_history"] });
+      if (!selectedProject) return;
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.commitHistoryBase(selectedProject),
+      });
     });
     return () => {
       unlisten.then((fn) => fn());
     };
-  }, [queryClient]);
+  }, [queryClient, selectedProject]);
 }
 
 function App() {

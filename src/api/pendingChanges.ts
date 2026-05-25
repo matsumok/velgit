@@ -46,7 +46,7 @@ export function useCommitChanges() {
         queryKey: queryKeys.projectCommits(selectedProject),
       });
       queryClient.invalidateQueries({
-        queryKey: ["commit_history"],
+        queryKey: queryKeys.commitHistoryBase(selectedProject),
       });
     },
   });
