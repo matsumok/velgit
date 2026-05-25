@@ -98,17 +98,20 @@ pub async fn commit_changes(
                 .flatten();
 
                 let Some((blob_oid_new, pdf_new, old_info)) = blobs else {
+                    eprintln!("[classify] blob extraction failed for {filename}");
                     continue;
                 };
 
                 let png_new =
                     image_cache::get_or_rasterize(&pool, &pdf_new, &blob_oid_new, 0)
                         .await
+                        .inspect_err(|e| eprintln!("[classify] rasterize new failed for {filename}: {e}"))
                         .ok();
 
                 let png_old = if let Some((blob_oid_old, pdf_old)) = old_info {
                     image_cache::get_or_rasterize(&pool, &pdf_old, &blob_oid_old, 0)
                         .await
+                        .inspect_err(|e| eprintln!("[classify] rasterize old failed for {filename}: {e}"))
                         .ok()
                 } else {
                     None
@@ -135,11 +138,16 @@ pub async fn commit_changes(
                 };
 
                 let db = DbPool(pool.clone());
-                let _ = db
+                if let Err(e) = db
                     .update_commit_file_change_type(&oid_bg, &filename, &change_type)
-                    .await;
+                    .await
+                {
+                    eprintln!("[classify] DB update failed for {filename}: {e}");
+                }
             }
-            let _ = app_handle_bg.emit("commit-classified", ());
+            if let Err(e) = app_handle_bg.emit("commit-classified", ()) {
+                eprintln!("[classify] emit failed: {e}");
+            }
         });
     }
 
