@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -14,6 +14,29 @@ use crate::{
     watcher::FileWatcher,
     AppState,
 };
+
+fn require_repo_path(state: &State<'_, AppState>) -> Result<PathBuf, String> {
+    state
+        .repo_path
+        .lock()
+        .unwrap()
+        .clone()
+        .ok_or_else(|| "ワーキングフォルダが選択されていません".to_string())
+}
+
+fn require_pool(state: &State<'_, AppState>) -> Result<sqlx::SqlitePool, String> {
+    state
+        .db
+        .lock()
+        .unwrap()
+        .as_ref()
+        .map(|db| db.0.clone())
+        .ok_or_else(|| "ワーキングフォルダが選択されていません".to_string())
+}
+
+fn get_pool_opt(state: &State<'_, AppState>) -> Option<sqlx::SqlitePool> {
+    state.db.lock().unwrap().as_ref().map(|db| db.0.clone())
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DrawingDto {
@@ -124,8 +147,7 @@ pub async fn init_working_folder(
 
 #[tauri::command]
 pub fn get_pending_changes(state: State<'_, AppState>) -> Result<Vec<PendingChangeDto>, String> {
-    let repo_path = state.repo_path.lock().unwrap().clone();
-    let Some(path) = repo_path else {
+    let Ok(path) = require_repo_path(&state) else {
         return Ok(vec![]);
     };
     repository::pending_changes(&path)
@@ -162,10 +184,7 @@ pub async fn commit_changes(
     state: State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    let repo_path = state.repo_path.lock().unwrap().clone();
-    let Some(path) = repo_path else {
-        return Err("ワーキングフォルダが選択されていません".to_string());
-    };
+    let path = require_repo_path(&state)?;
 
     if included_files.is_empty() {
         return Err("コミット対象のファイルが選択されていません".to_string());
@@ -179,7 +198,7 @@ pub async fn commit_changes(
         .map_err(|e| e.to_string())?;
     let oid_str = oid.to_string();
 
-    let pool = state.db.lock().unwrap().as_ref().map(|db| db.0.clone());
+    let pool = get_pool_opt(&state);
     if let Some(pool) = &pool {
         // 初期レコードをバイト比較結果で即時挿入（高速）
         let records: Vec<CommitFileRecord> = included_files
@@ -286,11 +305,10 @@ pub async fn get_commit_history(
     filename: String,
     state: State<'_, AppState>,
 ) -> Result<Vec<CommitEntryDto>, String> {
-    let repo_path = state.repo_path.lock().unwrap().clone();
-    let Some(path) = repo_path else {
+    let Ok(path) = require_repo_path(&state) else {
         return Ok(vec![]);
     };
-    let pool = state.db.lock().unwrap().as_ref().map(|db| db.0.clone());
+    let pool = get_pool_opt(&state);
 
     let entries = repository::commit_history(&path, &filename).map_err(|e| e.to_string())?;
 
@@ -322,8 +340,7 @@ pub async fn get_commit_history(
 
 #[tauri::command]
 pub fn get_project_commits(state: State<'_, AppState>) -> Result<Vec<CommitEntryDto>, String> {
-    let repo_path = state.repo_path.lock().unwrap().clone();
-    let Some(path) = repo_path else {
+    let Ok(path) = require_repo_path(&state) else {
         return Ok(vec![]);
     };
     repository::project_commits(&path)
@@ -333,8 +350,7 @@ pub fn get_project_commits(state: State<'_, AppState>) -> Result<Vec<CommitEntry
 
 #[tauri::command]
 pub fn get_drawings_at_commit(oid: String, state: State<'_, AppState>) -> Result<Vec<String>, String> {
-    let repo_path = state.repo_path.lock().unwrap().clone();
-    let Some(path) = repo_path else {
+    let Ok(path) = require_repo_path(&state) else {
         return Ok(vec![]);
     };
     repository::drawings_at_commit(&path, &oid).map_err(|e| e.to_string())
@@ -353,14 +369,8 @@ pub async fn generate_bind_pdf(
     save_path: String,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    let repo_path = state.repo_path.lock().unwrap().clone();
-    let Some(path) = repo_path else {
-        return Err("ワーキングフォルダが選択されていません".to_string());
-    };
-    let pool = state.db.lock().unwrap().as_ref().map(|db| db.0.clone());
-    let Some(pool) = pool else {
-        return Err("DB が開かれていません".to_string());
-    };
+    let path = require_repo_path(&state)?;
+    let pool = require_pool(&state)?;
 
     let release = releases::get_by_id(&pool, release_id)
         .await
@@ -407,11 +417,8 @@ pub async fn generate_diff(
     oid_b: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<GenerateDiffResult, String> {
-    let repo_path = state.repo_path.lock().unwrap().clone();
-    let pool = state.db.lock().unwrap().as_ref().map(|db| db.0.clone());
-    let Some(path) = repo_path else {
-        return Err("ワーキングフォルダが選択されていません".to_string());
-    };
+    let path = require_repo_path(&state)?;
+    let pool = get_pool_opt(&state);
 
     // git2 は !Send のためスコープ内で完結させる
     let (blob_oid_a, pdf_a, blob_oid_b, pdf_b) = {
@@ -493,11 +500,8 @@ pub async fn get_pdf_image(
     size: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<String, String> {
-    let repo_path = state.repo_path.lock().unwrap().clone();
-    let pool = state.db.lock().unwrap().as_ref().map(|db| db.0.clone());
-    let Some(path) = repo_path else {
-        return Err("ワーキングフォルダが選択されていません".to_string());
-    };
+    let path = require_repo_path(&state)?;
+    let pool = get_pool_opt(&state);
 
     // git2 は !Send のためスコープ内で完結させる
     let (blob_oid, pdf_bytes) = {
@@ -528,10 +532,7 @@ pub async fn get_working_copy_image(
     filename: String,
     state: State<'_, AppState>,
 ) -> Result<String, String> {
-    let repo_path = state.repo_path.lock().unwrap().clone();
-    let Some(path) = repo_path else {
-        return Err("ワーキングフォルダが選択されていません".to_string());
-    };
+    let path = require_repo_path(&state)?;
 
     let pdf_bytes = std::fs::read(path.join(&filename)).map_err(|e| e.to_string())?;
 
@@ -547,8 +548,7 @@ pub async fn get_working_copy_image(
 
 #[tauri::command]
 pub fn get_drawings(state: State<'_, AppState>) -> Result<Vec<DrawingDto>, String> {
-    let repo_path = state.repo_path.lock().unwrap().clone();
-    let Some(path) = repo_path else {
+    let Ok(path) = require_repo_path(&state) else {
         return Ok(vec![]);
     };
     let filenames = scan_pdfs(&path);
@@ -580,10 +580,7 @@ pub async fn create_release(
     created_by: String,
     state: State<'_, AppState>,
 ) -> Result<i64, String> {
-    let repo_path = state.repo_path.lock().unwrap().clone();
-    let Some(path) = repo_path else {
-        return Err("ワーキングフォルダが選択されていません".to_string());
-    };
+    let path = require_repo_path(&state)?;
     let repo = git2::Repository::open(&path).map_err(|e| e.to_string())?;
     let head_oid = repo
         .head()
@@ -591,10 +588,7 @@ pub async fn create_release(
         .map(|c| c.id().to_string())
         .map_err(|e| e.to_string())?;
 
-    let pool = state.db.lock().unwrap().as_ref().map(|db| db.0.clone());
-    let Some(pool) = pool else {
-        return Err("DB が開かれていません".to_string());
-    };
+    let pool = require_pool(&state)?;
 
     releases::create(
         &pool,
@@ -611,8 +605,7 @@ pub async fn create_release(
 
 #[tauri::command]
 pub async fn list_releases(state: State<'_, AppState>) -> Result<Vec<ReleaseEntryDto>, String> {
-    let pool = state.db.lock().unwrap().as_ref().map(|db| db.0.clone());
-    let Some(pool) = pool else {
+    let Ok(pool) = require_pool(&state) else {
         return Ok(vec![]);
     };
     releases::list(&pool)
@@ -640,8 +633,7 @@ pub async fn get_release_drawings(
     release_id: i64,
     state: State<'_, AppState>,
 ) -> Result<Vec<String>, String> {
-    let pool = state.db.lock().unwrap().as_ref().map(|db| db.0.clone());
-    let Some(pool) = pool else {
+    let Ok(pool) = require_pool(&state) else {
         return Ok(vec![]);
     };
     releases::get_drawings(&pool, release_id)
