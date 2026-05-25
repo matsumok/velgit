@@ -51,6 +51,7 @@ impl DbPool {
         commit_oid: &str,
         files: &[CommitFileRecord],
     ) -> Result<(), sqlx::Error> {
+        let mut tx = self.0.begin().await?;
         for f in files {
             sqlx::query(
                 "INSERT OR IGNORE INTO commit_files (commit_oid, filename, change_type, change_type_overridden) VALUES (?, ?, ?, ?)",
@@ -59,9 +60,10 @@ impl DbPool {
             .bind(&f.filename)
             .bind(&f.change_type)
             .bind(f.overridden as i32)
-            .execute(&self.0)
+            .execute(&mut *tx)
             .await?;
         }
+        tx.commit().await?;
         Ok(())
     }
 
