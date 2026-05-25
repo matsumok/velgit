@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useGetCommitHistory } from "../../api/commitHistory";
 import { useDiffAtCommit } from "../../api/generateDiff";
-import { useGetPendingChanges } from "../../api/pendingChanges";
 import { useDrawingPreview, useWorkingCopyPreview } from "../../api/pdfImage";
+import { useGetPendingChanges } from "../../api/pendingChanges";
 import { useGetProjectCommits } from "../../api/projectCommits";
 import { cn } from "../../lib/utils";
 import { useAppStore } from "../../store/useAppStore";
@@ -47,7 +47,7 @@ export function CommitHistoryPanel() {
 
   useEffect(() => {
     setSelectedHistoryOid(null);
-  }, [selectedDrawing, selectedCommitOid]);
+  }, []);
 
   // Resolve HEAD to actual latest commit OID
   const resolvedPreviewOid =
@@ -171,7 +171,11 @@ export function CommitHistoryPanel() {
           <ul className="py-1">
             {historyCommits.map((commit) => {
               const selected = selectedHistoryOid === commit.oid;
-              const isFaded = commit.changeType !== "meaningful";
+              const effectiveChangeType =
+                selected && diffResult
+                  ? diffResult.changeType
+                  : commit.changeType;
+              const isFaded = effectiveChangeType !== "meaningful";
               return (
                 <li key={commit.oid}>
                   <button
@@ -182,7 +186,7 @@ export function CommitHistoryPanel() {
                     className={cn(
                       "w-full text-left px-3 py-2 text-xs hover:bg-muted/60 transition-colors",
                       selected && "bg-muted",
-                      isFaded && !selected && "opacity-40",
+                      isFaded && "opacity-40",
                     )}
                   >
                     <p className="truncate font-medium">{commit.message}</p>

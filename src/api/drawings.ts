@@ -10,9 +10,10 @@ export interface Drawing {
 
 export function useGetDrawings() {
   const selectedProject = useAppStore((s) => s.selectedProject);
+  const isProjectReady = useAppStore((s) => s.isProjectReady);
   return useQuery<Drawing[]>({
     queryKey: selectedProject ? queryKeys.drawings(selectedProject) : [],
     queryFn: () => invoke<Drawing[]>("get_drawings"),
-    enabled: selectedProject !== null,
+    enabled: isProjectReady && selectedProject !== null,
   });
 }

@@ -16,10 +16,11 @@ export interface ReleaseEntry {
 
 export function useListReleases() {
   const selectedProject = useAppStore((s) => s.selectedProject);
+  const isProjectReady = useAppStore((s) => s.isProjectReady);
   return useQuery<ReleaseEntry[]>({
     queryKey: selectedProject ? queryKeys.releases(selectedProject) : [],
     queryFn: () => invoke<ReleaseEntry[]>("list_releases"),
-    enabled: selectedProject !== null,
+    enabled: isProjectReady && selectedProject !== null,
   });
 }
 

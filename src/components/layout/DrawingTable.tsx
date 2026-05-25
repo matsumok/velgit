@@ -87,7 +87,7 @@ export function DrawingTable({
       },
       {
         accessorKey: "filename",
-        header: "図面",
+        header: "全図面",
         cell: ({ row }) => (
           <span
             className={cn(

@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { listen } from "@tauri-apps/api/event";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useGetDrawings } from "./api/drawings";
 import { useGetPendingChanges } from "./api/pendingChanges";
 import { useInitProject } from "./api/project";
@@ -8,8 +8,8 @@ import { useGetDrawingsAtCommit } from "./api/projectCommits";
 import { queryKeys } from "./api/queryKeys";
 import { CommitPanel } from "./components/commit/CommitPanel";
 import { JobSelector } from "./components/JobSelector";
-import { CommitHistoryPanel } from "./components/layout/CommitHistoryPanel";
 import { AppHeader } from "./components/layout/AppHeader";
+import { CommitHistoryPanel } from "./components/layout/CommitHistoryPanel";
 import { DrawingTable } from "./components/layout/DrawingTable";
 import { ThreePaneLayout } from "./components/layout/ThreePaneLayout";
 import { ProjectTimeline } from "./components/ProjectTimeline";
@@ -162,27 +162,10 @@ function useCommitClassifiedListener() {
   }, [queryClient, selectedProject]);
 }
 
-function useProjectSwitchClear() {
-  const queryClient = useQueryClient();
-  const selectedProject = useAppStore((s) => s.selectedProject);
-  const prevProject = useRef<string | null | undefined>(undefined);
-  useEffect(() => {
-    if (prevProject.current === undefined) {
-      prevProject.current = selectedProject;
-      return;
-    }
-    if (prevProject.current !== selectedProject) {
-      queryClient.clear();
-      prevProject.current = selectedProject;
-    }
-  }, [queryClient, selectedProject]);
-}
-
 function App() {
   usePdfChangedListener();
   useThemeSync();
   useCommitClassifiedListener();
-  useProjectSwitchClear();
   const isPolling = useWatcherState();
   return (
     <UsernameGate>

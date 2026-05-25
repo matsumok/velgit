@@ -14,6 +14,7 @@ export interface CommitEntry {
 export function useGetCommitHistory() {
   const selectedDrawing = useAppStore((s) => s.selectedDrawing);
   const selectedProject = useAppStore((s) => s.selectedProject);
+  const isProjectReady = useAppStore((s) => s.isProjectReady);
   return useQuery<CommitEntry[]>({
     queryKey:
       selectedProject && selectedDrawing
@@ -23,6 +24,7 @@ export function useGetCommitHistory() {
       invoke<CommitEntry[]>("get_commit_history", {
         filename: selectedDrawing,
       }),
-    enabled: selectedProject !== null && selectedDrawing !== null,
+    enabled:
+      isProjectReady && selectedProject !== null && selectedDrawing !== null,
   });
 }

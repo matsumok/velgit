@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import { useGetProjectCommits } from "../api/projectCommits";
 import { useListReleases } from "../api/releases";
-import { cn } from "../lib/utils";
 import { mergeTimelineEntries, type TimelineEntry } from "../lib/timeline";
+import { cn } from "../lib/utils";
 import { useAppStore } from "../store/useAppStore";
 import { Badge } from "./ui/badge";
 import { ScrollArea } from "./ui/scroll-area";

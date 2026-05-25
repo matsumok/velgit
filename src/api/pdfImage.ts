@@ -1,5 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
 
 export function useGetPdfImage() {

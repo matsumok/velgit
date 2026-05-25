@@ -24,6 +24,8 @@ interface AppState {
   selectJob: (id: string | null) => void;
   theme: "light" | "dark";
   setTheme: (theme: "light" | "dark") => void;
+  isProjectReady: boolean;
+  setProjectReady: (ready: boolean) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -58,11 +60,26 @@ export const useAppStore = create<AppState>()(
           selectedProject: job?.path ?? null,
           selectedCommitOid: "HEAD",
           selectedDrawing: null,
+          isProjectReady: false,
         });
       },
       theme: "light",
       setTheme: (theme) => set({ theme }),
+      isProjectReady: false,
+      setProjectReady: (ready) => set({ isProjectReady: ready }),
     }),
-    { name: "velgit-store" },
+    {
+      name: "velgit-store",
+      partialize: (state) => ({
+        selectedProject: state.selectedProject,
+        selectedDrawing: state.selectedDrawing,
+        selectedCommitOid: state.selectedCommitOid,
+        username: state.username,
+        jobs: state.jobs,
+        selectedJobId: state.selectedJobId,
+        theme: state.theme,
+        // isProjectReady は永続化しない（起動時は常に false）
+      }),
+    },
   ),
 );

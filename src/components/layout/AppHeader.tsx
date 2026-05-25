@@ -1,7 +1,5 @@
 import { GitBranchIcon, MoonIcon, SunIcon } from "@phosphor-icons/react";
 import { useState } from "react";
-import { cn } from "@/lib/utils";
-import { useAppStore } from "@/store/useAppStore";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -9,6 +7,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
+import { useAppStore } from "@/store/useAppStore";
 
 export function AppHeader() {
   const { username, setUsername, theme, setTheme } = useAppStore();
@@ -68,7 +68,6 @@ export function AppHeader() {
               if (e.key === "Enter") handleSave();
               if (e.key === "Escape") setOpen(false);
             }}
-            // biome-ignore lint/a11y/noAutofocus: dialog requires immediate focus
             autoFocus
           />
           <Button disabled={!input.trim()} onClick={handleSave}>

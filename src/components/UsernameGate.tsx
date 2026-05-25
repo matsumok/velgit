@@ -35,7 +35,6 @@ export function UsernameGate({ children }: { children: React.ReactNode }) {
           onKeyDown={(e) => {
             if (e.key === "Enter") handleConfirm();
           }}
-          // biome-ignore lint/a11y/noAutofocus: modal dialog requires immediate focus
           autoFocus
         />
         <Button disabled={!input.trim()} onClick={handleConfirm}>

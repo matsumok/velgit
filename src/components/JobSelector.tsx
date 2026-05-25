@@ -1,7 +1,6 @@
-import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { CaretDownIcon, FolderOpenIcon, PlusIcon } from "@phosphor-icons/react";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { useState } from "react";
-import { useAppStore, type Job } from "@/store/useAppStore";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -9,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { type Job, useAppStore } from "@/store/useAppStore";
 
 export function JobSelector() {
   const { jobs, selectedJobId, selectJob, addJob } = useAppStore();

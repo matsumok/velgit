@@ -14,10 +14,11 @@ export interface PendingChange {
 
 export function useGetPendingChanges() {
   const selectedProject = useAppStore((s) => s.selectedProject);
+  const isProjectReady = useAppStore((s) => s.isProjectReady);
   return useQuery<PendingChange[]>({
     queryKey: selectedProject ? queryKeys.pendingChanges(selectedProject) : [],
     queryFn: () => invoke<PendingChange[]>("get_pending_changes"),
-    enabled: selectedProject !== null,
+    enabled: isProjectReady && selectedProject !== null,
   });
 }
 
