@@ -10,13 +10,12 @@ import { CommitPanel } from "./components/commit/CommitPanel";
 import { JobSelector } from "./components/JobSelector";
 import { CommitHistoryPanel } from "./components/layout/CommitHistoryPanel";
 import { AppHeader } from "./components/layout/AppHeader";
+import { DrawingTable } from "./components/layout/DrawingTable";
 import { ThreePaneLayout } from "./components/layout/ThreePaneLayout";
 import { ProjectTimeline } from "./components/ProjectTimeline";
 import { ReleasePanel } from "./components/ReleasePanel";
 import { UsernameGate } from "./components/UsernameGate";
-import { Badge } from "./components/ui/badge";
 import { resolveDrawingStatuses } from "./lib/drawingStatus";
-import { useDrawingSelection } from "./lib/useDrawingSelection";
 import { cn } from "./lib/utils";
 import { useAppStore } from "./store/useAppStore";
 
@@ -31,101 +30,34 @@ function LeftPane() {
   );
 }
 
-const STATUS_COLOR = {
-  new: "text-green-600",
-  modified: "text-yellow-600",
-  unchanged: "",
-} as const;
-
-function DrawingListContent({
-  isSelected,
-  onToggle,
-  showCheckboxes,
-}: {
-  isSelected: (filename: string) => boolean;
-  onToggle: (filename: string) => void;
-  showCheckboxes: boolean;
-}) {
-  const { selectedCommitOid, setSelectedDrawing } = useAppStore();
+function CenterPane() {
+  const { selectedProject, selectedCommitOid, setSelectedDrawing } =
+    useAppStore();
+  const { error, loading, openFolder } = useInitProject();
+  const { data: changes = [] } = useGetPendingChanges();
   const { data: headDrawings = [] } = useGetDrawings();
   const { data: pastDrawings } = useGetDrawingsAtCommit(selectedCommitOid);
-  const { data: pendingChanges = [] } = useGetPendingChanges();
 
-  const items = useMemo(
+  const [selectedFilenames, setSelectedFilenames] = useState<string[]>([]);
+
+  const mode =
+    selectedCommitOid !== "HEAD"
+      ? "browse"
+      : changes.length > 0
+        ? "commit"
+        : "release";
+
+  const rows = useMemo(
     () =>
       selectedCommitOid === "HEAD"
-        ? resolveDrawingStatuses(headDrawings, pendingChanges)
+        ? resolveDrawingStatuses(headDrawings, changes)
         : (pastDrawings ?? []).map((filename) => ({
             filename,
             status: "unchanged" as const,
             isMinor: false,
           })),
-    [selectedCommitOid, headDrawings, pastDrawings, pendingChanges],
+    [selectedCommitOid, headDrawings, pastDrawings, changes],
   );
-
-  return (
-    <div className="flex-1 overflow-y-auto p-4">
-      <p className="text-xs text-muted-foreground mb-2">図面一覧</p>
-      {items.length > 0 ? (
-        <ul className="space-y-1">
-          {items.map(({ filename, status, isMinor }) => (
-            <li key={filename}>
-              <div
-                className={cn(
-                  "flex items-center gap-2 text-sm px-2 py-1 rounded hover:bg-muted",
-                  STATUS_COLOR[status],
-                )}
-              >
-                {showCheckboxes && status !== "unchanged" && (
-                  <input
-                    type="checkbox"
-                    checked={isSelected(filename)}
-                    onChange={() => onToggle(filename)}
-                    aria-label={filename}
-                    className="shrink-0"
-                  />
-                )}
-                <button
-                  type="button"
-                  className="flex-1 text-left truncate cursor-pointer"
-                  onClick={() => setSelectedDrawing(filename)}
-                >
-                  {filename}
-                </button>
-                {isMinor && (
-                  <Badge variant="secondary" className="shrink-0 text-xs">
-                    ~
-                  </Badge>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-sm text-muted-foreground">PDFファイルがありません</p>
-      )}
-    </div>
-  );
-}
-
-function CenterPane() {
-  const { selectedProject, selectedCommitOid } = useAppStore();
-  const { error, loading, openFolder } = useInitProject();
-  const { data: changes = [] } = useGetPendingChanges();
-  const { data: headDrawings = [] } = useGetDrawings();
-
-  const isCommitMode = selectedCommitOid === "HEAD" && changes.length > 0;
-  const isReleaseMode = selectedCommitOid === "HEAD" && changes.length === 0;
-
-  const selectableFilenames = useMemo(
-    () =>
-      isCommitMode
-        ? changes.map((c) => c.filename)
-        : headDrawings.map((d) => d.filename),
-    [isCommitMode, changes, headDrawings],
-  );
-
-  const selection = useDrawingSelection(selectableFilenames);
 
   if (!selectedProject) {
     return (
@@ -150,21 +82,22 @@ function CenterPane() {
 
   return (
     <div className="flex flex-col h-full">
-      <DrawingListContent
-        isSelected={selection.isSelected}
-        onToggle={selection.toggle}
-        showCheckboxes={isCommitMode || isReleaseMode}
+      <DrawingTable
+        rows={rows}
+        mode={mode}
+        onPreviewChange={setSelectedDrawing}
+        onSelectionChange={setSelectedFilenames}
       />
       {selectedCommitOid === "HEAD" &&
-        (isCommitMode ? (
+        (mode === "commit" ? (
           <CommitPanel
-            selectedFilenames={selection.selectedFilenames}
-            onCommitSuccess={selection.reset}
+            selectedFilenames={selectedFilenames}
+            onCommitSuccess={() => {}}
           />
         ) : (
           <ReleasePanel
-            selectedFilenames={selection.selectedFilenames}
-            onReleaseSuccess={selection.reset}
+            selectedFilenames={selectedFilenames}
+            onReleaseSuccess={() => {}}
           />
         ))}
     </div>
