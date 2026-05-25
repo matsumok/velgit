@@ -9,11 +9,24 @@ export function useGetPdfImage() {
   });
 }
 
-export function useDrawingPreview(filename: string | null, oid: string | null) {
+export function useWorkingCopyPreview(filename: string | null) {
   return useQuery<string>({
-    queryKey: ["pdf_image", filename, oid],
-    queryFn: () => invoke<string>("get_pdf_image", { filename, oid }),
+    queryKey: ["wc_image", filename],
+    queryFn: () => invoke<string>("get_working_copy_image", { filename }),
+    enabled: !!filename,
+    staleTime: 0,
+  });
+}
+
+export function useDrawingPreview(
+  filename: string | null,
+  oid: string | null,
+  size: "thumb" | "full" = "full",
+) {
+  return useQuery<string>({
+    queryKey: ["pdf_image", filename, oid, size],
+    queryFn: () => invoke<string>("get_pdf_image", { filename, oid, size }),
     enabled: !!filename && !!oid,
-    staleTime: Number.POSITIVE_INFINITY,
+    staleTime: 5 * 60 * 1000,
   });
 }

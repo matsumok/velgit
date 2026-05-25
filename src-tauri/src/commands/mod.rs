@@ -7,6 +7,7 @@ use base64::{Engine as _, engine::general_purpose::STANDARD};
 use crate::{
     db::{CommitFileRecord, DbPool},
     diff,
+    image_cache,
     pdf,
     releases,
     repository::{self, ChangeKind, CommitEntry, InitError},
@@ -152,32 +153,6 @@ pub fn get_pending_changes(state: State<'_, AppState>) -> Result<Vec<PendingChan
         })
 }
 
-fn compute_visual_change_type(repo_path: &std::path::Path, oid_str: &str, filename: &str) -> String {
-    (|| -> Option<String> {
-        let repo = git2::Repository::open(repo_path).ok()?;
-        let oid = git2::Oid::from_str(oid_str).ok()?;
-        let commit = repo.find_commit(oid).ok()?;
-
-        let tree = commit.tree().ok()?;
-        let new_blob_id = tree.get_name(filename)?.id();
-        let pdf_new = repo.find_blob(new_blob_id).ok()?.content().to_vec();
-
-        let parent = commit.parent(0).ok()?;
-        let parent_tree = parent.tree().ok()?;
-        let old_blob_id = parent_tree.get_name(filename)?.id();
-        let pdf_old = repo.find_blob(old_blob_id).ok()?.content().to_vec();
-
-        let rgba_new = pdf::rasterize_to_image(&pdf_new, 0).ok()?;
-        let rgba_old = pdf::rasterize_to_image(&pdf_old, 0).ok()?;
-
-        let result = diff::diff(&rgba_old, &rgba_new);
-        Some(match result.change_type {
-            diff::ChangeType::None => "none",
-            diff::ChangeType::Minor => "minor",
-            diff::ChangeType::Meaningful => "meaningful",
-        }.to_string())
-    })().unwrap_or_else(|| "meaningful".to_string())
-}
 
 #[tauri::command]
 pub async fn commit_changes(
@@ -226,7 +201,7 @@ pub async fn commit_changes(
             .map_err(|e| e.to_string())?;
     }
 
-    // バックグラウンドでビジュアル差分を計算し change_type を更新
+    // バックグラウンドで画像キャッシュ生成とビジュアル差分計算を並行実行
     if let Some(pool) = pool {
         let path_bg = path.clone();
         let oid_bg = oid_str.clone();
@@ -235,17 +210,69 @@ pub async fn commit_changes(
         tauri::async_runtime::spawn(async move {
             use tauri::Emitter;
             for filename in &files_bg {
-                let p = path_bg.clone();
-                let o = oid_bg.clone();
-                let f = filename.clone();
-                let change_type = tokio::task::spawn_blocking(move || {
-                    compute_visual_change_type(&p, &o, &f)
+                let filename = filename.clone();
+                let path = path_bg.clone();
+                let oid_str = oid_bg.clone();
+
+                // git2 は !Send のためブロッキングスレッドで blob データを取得
+                let blobs = tokio::task::spawn_blocking({
+                    let filename = filename.clone();
+                    move || -> Option<(String, Vec<u8>, Option<(String, Vec<u8>)>)> {
+                        let repo = git2::Repository::open(&path).ok()?;
+                        let oid = git2::Oid::from_str(&oid_str).ok()?;
+                        let commit = repo.find_commit(oid).ok()?;
+                        let tree = commit.tree().ok()?;
+                        let entry = tree.get_name(&filename)?;
+                        let blob_oid_new = entry.id().to_string();
+                        let pdf_new = repo.find_blob(entry.id()).ok()?.content().to_vec();
+                        let old_info = commit.parent(0).ok().and_then(|parent| {
+                            let tree = parent.tree().ok()?;
+                            let entry = tree.get_name(&filename)?;
+                            let blob_oid_old = entry.id().to_string();
+                            let pdf_old = repo.find_blob(entry.id()).ok()?.content().to_vec();
+                            Some((blob_oid_old, pdf_old))
+                        });
+                        Some((blob_oid_new, pdf_new, old_info))
+                    }
                 })
                 .await
-                .unwrap_or_else(|_| "meaningful".to_string());
+                .ok()
+                .flatten();
+
+                let Some((blob_oid_new, pdf_new, old_info)) = blobs else { continue; };
+
+                // 新バージョンをキャッシュ（コミット直後から即アクセス可能に）
+                let png_new = image_cache::get_or_rasterize(&pool, &pdf_new, &blob_oid_new, 0).await.ok();
+
+                // 旧バージョンもキャッシュ（diff 表示時の再ラスタライズを防ぐ）
+                let png_old = if let Some((blob_oid_old, pdf_old)) = old_info {
+                    image_cache::get_or_rasterize(&pool, &pdf_old, &blob_oid_old, 0).await.ok()
+                } else {
+                    None
+                };
+
+                // キャッシュ済み PNG からビジュアル差分を計算
+                let change_type = match (png_new, png_old) {
+                    (Some(pn), Some(po)) => {
+                        tokio::task::spawn_blocking(move || {
+                            let rn = image_cache::decode_to_rgba(&pn).ok()?;
+                            let ro = image_cache::decode_to_rgba(&po).ok()?;
+                            Some(match diff::diff(&ro, &rn).change_type {
+                                diff::ChangeType::None => "none",
+                                diff::ChangeType::Minor => "minor",
+                                diff::ChangeType::Meaningful => "meaningful",
+                            }.to_string())
+                        })
+                        .await
+                        .ok()
+                        .flatten()
+                        .unwrap_or_else(|| "meaningful".to_string())
+                    }
+                    _ => "meaningful".to_string(),
+                };
 
                 let db = DbPool(pool.clone());
-                let _ = db.update_commit_file_change_type(&oid_bg, filename, &change_type).await;
+                let _ = db.update_commit_file_change_type(&oid_bg, &filename, &change_type).await;
             }
             let _ = app_handle_bg.emit("commit-classified", ());
         });
@@ -357,59 +384,87 @@ pub async fn generate_bind_pdf(
     Ok(())
 }
 
-fn extract_pdf_blob(repo: &git2::Repository, oid_str: &str, filename: &str) -> Result<Vec<u8>, String> {
+fn extract_blob_with_oid(repo: &git2::Repository, oid_str: &str, filename: &str) -> Result<(String, Vec<u8>), String> {
     let oid = git2::Oid::from_str(oid_str).map_err(|e| e.to_string())?;
     let commit = repo.find_commit(oid).map_err(|e| e.to_string())?;
     let tree = commit.tree().map_err(|e| e.to_string())?;
     let entry = tree
         .get_name(filename)
         .ok_or_else(|| format!("{filename} はこのコミットに存在しません"))?;
+    let blob_oid = entry.id().to_string();
     let blob = repo.find_blob(entry.id()).map_err(|e| e.to_string())?;
-    Ok(blob.content().to_vec())
+    Ok((blob_oid, blob.content().to_vec()))
+}
+
+fn extract_pdf_blob(repo: &git2::Repository, oid_str: &str, filename: &str) -> Result<Vec<u8>, String> {
+    extract_blob_with_oid(repo, oid_str, filename).map(|(_, pdf)| pdf)
 }
 
 #[tauri::command]
-pub fn generate_diff(
+pub async fn generate_diff(
     filename: String,
     oid_a: String,
     oid_b: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<GenerateDiffResult, String> {
     let repo_path = state.repo_path.lock().unwrap().clone();
+    let pool = state.db.lock().unwrap().as_ref().map(|db| db.0.clone());
     let Some(path) = repo_path else {
         return Err("ワーキングフォルダが選択されていません".to_string());
     };
 
-    let repo = git2::Repository::open(&path).map_err(|e| e.to_string())?;
+    // git2 は !Send のためスコープ内で完結させる
+    let (blob_oid_a, pdf_a, blob_oid_b, pdf_b) = {
+        let repo = git2::Repository::open(&path).map_err(|e| e.to_string())?;
+        let (blob_oid_a, pdf_a) = extract_blob_with_oid(&repo, &oid_a, &filename)?;
 
-    let pdf_a = extract_pdf_blob(&repo, &oid_a, &filename)?;
-
-    let pdf_b = if let Some(ref oid_b_str) = oid_b {
-        // blob OID が同一ならラスタライズをスキップ
-        let oid_a_parsed = git2::Oid::from_str(&oid_a).map_err(|e| e.to_string())?;
-        let oid_b_parsed = git2::Oid::from_str(oid_b_str).map_err(|e| e.to_string())?;
-        let commit_a = repo.find_commit(oid_a_parsed).map_err(|e| e.to_string())?;
-        let commit_b = repo.find_commit(oid_b_parsed).map_err(|e| e.to_string())?;
-        let blob_a_id = commit_a.tree().ok()
-            .and_then(|t| t.get_name(&filename).map(|e| e.id()));
-        let blob_b_id = commit_b.tree().ok()
-            .and_then(|t| t.get_name(&filename).map(|e| e.id()));
-        if blob_a_id.is_some() && blob_a_id == blob_b_id {
-            return Ok(GenerateDiffResult { change_type: "none".to_string(), url: None });
-        }
-        extract_pdf_blob(&repo, oid_b_str, &filename)?
-    } else {
-        // oid_b=None: 作業コピーと比較。HEADがなければ差分なしを返す
-        match std::fs::read(path.join(&filename)) {
-            Ok(bytes) => bytes,
-            Err(_) => return Ok(GenerateDiffResult { change_type: "none".to_string(), url: None }),
+        match oid_b {
+            Some(ref oid_b_str) => {
+                let (blob_oid_b, pdf_b) = extract_blob_with_oid(&repo, oid_b_str, &filename)?;
+                if blob_oid_a == blob_oid_b {
+                    return Ok(GenerateDiffResult { change_type: "none".to_string(), url: None });
+                }
+                (blob_oid_a, pdf_a, Some(blob_oid_b), pdf_b)
+            }
+            None => {
+                // 作業コピーと比較。ファイルがなければ差分なしを返す
+                let pdf_b = match std::fs::read(path.join(&filename)) {
+                    Ok(bytes) => bytes,
+                    Err(_) => return Ok(GenerateDiffResult { change_type: "none".to_string(), url: None }),
+                };
+                (blob_oid_a, pdf_a, None::<String>, pdf_b)
+            }
         }
     };
 
-    let rgba_a = pdf::rasterize_to_image(&pdf_a, 0).map_err(|e| e.to_string())?;
-    let rgba_b = pdf::rasterize_to_image(&pdf_b, 0).map_err(|e| e.to_string())?;
+    // blob_a: キャッシュ経由でラスタライズ
+    let png_a = if let Some(ref pool) = pool {
+        image_cache::get_or_rasterize(pool, &pdf_a, &blob_oid_a, 0).await?
+    } else {
+        pdf::rasterize(&pdf_a, 0).map_err(|e| e.to_string())?
+    };
 
-    let result = diff::diff(&rgba_a, &rgba_b);
+    // blob_b: コミット済みならキャッシュ経由、作業コピーは都度ラスタライズ
+    let png_b = if let (Some(ref pool), Some(ref b_oid)) = (&pool, &blob_oid_b) {
+        image_cache::get_or_rasterize(pool, &pdf_b, b_oid, 0).await?
+    } else {
+        tokio::task::spawn_blocking(move || {
+            pdf::rasterize(&pdf_b, 0).map_err(|e| e.to_string())
+        })
+        .await
+        .map_err(|e| e.to_string())?
+        ?
+    };
+
+    // PNG → RGBA デコードと差分計算（CPU 重い処理をブロッキングスレッドで実行）
+    let result = tokio::task::spawn_blocking(move || -> Result<diff::DiffResult, String> {
+        let rgba_a = image_cache::decode_to_rgba(&png_a)?;
+        let rgba_b = image_cache::decode_to_rgba(&png_b)?;
+        Ok(diff::diff(&rgba_a, &rgba_b))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    ?;
 
     let change_type = match result.change_type {
         diff::ChangeType::None => "none",
@@ -432,9 +487,45 @@ pub fn generate_diff(
 }
 
 #[tauri::command]
-pub fn get_pdf_image(
+pub async fn get_pdf_image(
     filename: String,
     oid: String,
+    size: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    let repo_path = state.repo_path.lock().unwrap().clone();
+    let pool = state.db.lock().unwrap().as_ref().map(|db| db.0.clone());
+    let Some(path) = repo_path else {
+        return Err("ワーキングフォルダが選択されていません".to_string());
+    };
+
+    // git2 は !Send のためスコープ内で完結させる
+    let (blob_oid, pdf_bytes) = {
+        let repo = git2::Repository::open(&path).map_err(|e| e.to_string())?;
+        extract_blob_with_oid(&repo, &oid, &filename)?
+    };
+
+    let full_png = if let Some(ref pool) = pool {
+        image_cache::get_or_rasterize(pool, &pdf_bytes, &blob_oid, 0).await?
+    } else {
+        pdf::rasterize(&pdf_bytes, 0).map_err(|e| e.to_string())?
+    };
+
+    let result_png = if size.as_deref() == Some("thumb") {
+        tokio::task::spawn_blocking(move || image_cache::resize_to_thumb(&full_png))
+            .await
+            .map_err(|e| e.to_string())?
+            ?
+    } else {
+        full_png
+    };
+
+    Ok(format!("data:image/png;base64,{}", STANDARD.encode(&result_png)))
+}
+
+#[tauri::command]
+pub async fn get_working_copy_image(
+    filename: String,
     state: State<'_, AppState>,
 ) -> Result<String, String> {
     let repo_path = state.repo_path.lock().unwrap().clone();
@@ -442,20 +533,14 @@ pub fn get_pdf_image(
         return Err("ワーキングフォルダが選択されていません".to_string());
     };
 
-    let repo = git2::Repository::open(&path).map_err(|e| e.to_string())?;
-    let commit = repo
-        .find_commit(git2::Oid::from_str(&oid).map_err(|e| e.to_string())?)
-        .map_err(|e| e.to_string())?;
-    let tree = commit.tree().map_err(|e| e.to_string())?;
-    let entry = tree
-        .get_name(&filename)
-        .ok_or_else(|| format!("{filename} はこのコミットに存在しません"))?;
-    let blob = repo
-        .find_blob(entry.id())
-        .map_err(|e| e.to_string())?;
-    let pdf_bytes = blob.content();
+    let pdf_bytes = std::fs::read(path.join(&filename)).map_err(|e| e.to_string())?;
 
-    let png_bytes = pdf::rasterize(pdf_bytes, 0).map_err(|e| e.to_string())?;
+    let png_bytes = tokio::task::spawn_blocking(move || {
+        pdf::rasterize(&pdf_bytes, 0).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    ?;
 
     Ok(format!("data:image/png;base64,{}", STANDARD.encode(&png_bytes)))
 }

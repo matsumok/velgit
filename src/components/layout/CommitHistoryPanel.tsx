@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useGetCommitHistory } from "../../api/commitHistory";
 import type { GenerateDiffResult } from "../../api/generateDiff";
 import { useGetPendingChanges } from "../../api/pendingChanges";
-import { useDrawingPreview } from "../../api/pdfImage";
+import { useDrawingPreview, useWorkingCopyPreview } from "../../api/pdfImage";
 import { useGetProjectCommits } from "../../api/projectCommits";
 import { cn } from "../../lib/utils";
 import { useAppStore } from "../../store/useAppStore";
@@ -113,10 +113,22 @@ export function CommitHistoryPanel() {
     ? null
     : (topItem?.oid ?? resolvedPreviewOid);
 
+  // 未コミットファイル: 作業コピーをディスクから直接表示
+  const { data: wcPreviewUrl, isLoading: wcPreviewLoading } =
+    useWorkingCopyPreview(
+      hasUncommitted && selectedHistoryOid === null ? selectedDrawing : null,
+    );
+
+  // コミット済みファイル: 最新コミットの画像を表示
   const { data: previewUrl, isLoading: previewLoading } = useDrawingPreview(
-    selectedHistoryOid === null ? selectedDrawing : null,
-    selectedHistoryOid === null ? resolvedPreviewOid : null,
+    !hasUncommitted && selectedHistoryOid === null ? selectedDrawing : null,
+    !hasUncommitted && selectedHistoryOid === null ? resolvedPreviewOid : null,
   );
+
+  const activePreviewUrl = hasUncommitted ? wcPreviewUrl : previewUrl;
+  const activePreviewLoading = hasUncommitted
+    ? wcPreviewLoading
+    : previewLoading;
 
   const {
     data: diffResult,
@@ -227,18 +239,18 @@ export function CommitHistoryPanel() {
               }
             />
           </div>
-        ) : previewLoading ? (
+        ) : activePreviewLoading ? (
           <div className="flex h-20 items-center justify-center">
             <Spinner />
           </div>
-        ) : previewUrl ? (
+        ) : activePreviewUrl ? (
           <img
-            src={previewUrl}
+            src={activePreviewUrl}
             alt="図面プレビュー"
             className="w-full"
             draggable={false}
           />
-        ) : resolvedPreviewOid === null ? (
+        ) : !hasUncommitted && resolvedPreviewOid === null ? (
           <div className="flex h-20 items-center justify-center">
             <p className="text-xs text-muted-foreground">
               コミット履歴がありません
