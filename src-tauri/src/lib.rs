@@ -36,21 +36,21 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
-            commands::is_initialized,
-            commands::init_working_folder,
-            commands::get_drawings,
-            commands::get_pending_changes,
-            commands::commit_changes,
-            commands::get_commit_history,
-            commands::get_project_commits,
-            commands::get_drawings_at_commit,
-            commands::get_pdf_image,
-            commands::get_working_copy_image,
-            commands::generate_diff,
-            commands::create_release,
-            commands::list_releases,
-            commands::get_release_drawings,
-            commands::generate_bind_pdf,
+            commands::project::is_initialized,
+            commands::project::init_working_folder,
+            commands::drawings::get_drawings,
+            commands::drawings::get_pending_changes,
+            commands::drawings::get_drawings_at_commit,
+            commands::commits::commit_changes,
+            commands::commits::get_commit_history,
+            commands::commits::get_project_commits,
+            commands::images::get_pdf_image,
+            commands::images::get_working_copy_image,
+            commands::images::generate_diff,
+            commands::releases::create_release,
+            commands::releases::list_releases,
+            commands::releases::get_release_drawings,
+            commands::releases::generate_bind_pdf,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
