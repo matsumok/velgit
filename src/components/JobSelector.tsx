@@ -51,9 +51,7 @@ export function JobSelector() {
           onClick={() => setPopoverOpen((v) => !v)}
           className="w-full flex items-center justify-between gap-1 px-2 py-1.5 text-sm font-medium hover:bg-muted rounded"
         >
-          <span className="truncate">
-            {selectedJob?.name ?? "Job未選択"}
-          </span>
+          <span className="truncate">{selectedJob?.name ?? "Job未選択"}</span>
           <CaretDownIcon className="size-3 shrink-0 text-muted-foreground" />
         </button>
 

@@ -1,8 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
-import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useMemo, useState } from "react";
 import { useGetCommitHistory } from "../../api/commitHistory";
-import type { GenerateDiffResult } from "../../api/generateDiff";
+import { useDiffAtCommit } from "../../api/generateDiff";
 import { useGetPendingChanges } from "../../api/pendingChanges";
 import { useDrawingPreview, useWorkingCopyPreview } from "../../api/pdfImage";
 import { useGetProjectCommits } from "../../api/projectCommits";
@@ -33,24 +31,6 @@ function Spinner({ className }: { className?: string }) {
       )}
     />
   );
-}
-
-function useDiffAtCommit(
-  filename: string | null,
-  historyOid: string | null,
-  baseOid: string | null, // null = WD comparison
-) {
-  return useQuery<GenerateDiffResult>({
-    queryKey: ["diff_at_commit", filename, historyOid, baseOid],
-    queryFn: () =>
-      invoke<GenerateDiffResult>("generate_diff", {
-        filename,
-        oidA: historyOid,
-        oidB: baseOid,
-      }),
-    enabled: !!filename && !!historyOid,
-    staleTime: Number.POSITIVE_INFINITY,
-  });
 }
 
 export function CommitHistoryPanel() {
