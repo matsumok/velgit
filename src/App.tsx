@@ -90,15 +90,9 @@ function CenterPane() {
       />
       {selectedCommitOid === "HEAD" &&
         (mode === "commit" ? (
-          <CommitPanel
-            selectedFilenames={selectedFilenames}
-            onCommitSuccess={() => {}}
-          />
+          <CommitPanel selectedFilenames={selectedFilenames} />
         ) : (
-          <ReleasePanel
-            selectedFilenames={selectedFilenames}
-            onReleaseSuccess={() => {}}
-          />
+          <ReleasePanel selectedFilenames={selectedFilenames} />
         ))}
     </div>
   );

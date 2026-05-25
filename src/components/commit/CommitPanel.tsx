@@ -5,10 +5,8 @@ import { useAppStore } from "../../store/useAppStore";
 
 export function CommitPanel({
   selectedFilenames,
-  onCommitSuccess,
 }: {
   selectedFilenames: string[];
-  onCommitSuccess: () => void;
 }) {
   const { mutate: commitChanges, isPending, error } = useCommitChanges();
   const username = useAppStore((s) => s.username);
@@ -18,12 +16,7 @@ export function CommitPanel({
     if (!message.trim() || !username || selectedFilenames.length === 0) return;
     commitChanges(
       { message, includedFiles: selectedFilenames, createdBy: username },
-      {
-        onSuccess: () => {
-          setMessage("");
-          onCommitSuccess();
-        },
-      },
+      { onSuccess: () => setMessage("") },
     );
   }
 

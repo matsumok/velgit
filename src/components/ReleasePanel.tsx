@@ -5,10 +5,8 @@ import { useAppStore } from "../store/useAppStore";
 
 export function ReleasePanel({
   selectedFilenames,
-  onReleaseSuccess,
 }: {
   selectedFilenames: string[];
-  onReleaseSuccess: () => void;
 }) {
   const { mutateAsync, isPending } = useCreateRelease();
   const username = useAppStore((s) => s.username);
@@ -30,7 +28,6 @@ export function ReleasePanel({
     setName("");
     setKind("internal");
     setRecipient("");
-    onReleaseSuccess();
   }
 
   return (

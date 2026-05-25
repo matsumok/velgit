@@ -5,7 +5,6 @@ import { useAppStore } from "../store/useAppStore";
 import { ReleasePanel } from "./ReleasePanel";
 
 const mockMutateAsync = vi.fn().mockResolvedValue(1);
-const mockOnReleaseSuccess = vi.fn();
 
 vi.mock("../api/releases", () => ({
   useCreateRelease: vi.fn(() => ({
@@ -17,19 +16,13 @@ vi.mock("../api/releases", () => ({
 const DEFAULT_FILENAMES = ["A-001_平面図.pdf", "S-001_伏図.pdf"];
 
 function renderPanel(selectedFilenames = DEFAULT_FILENAMES) {
-  return render(
-    <ReleasePanel
-      selectedFilenames={selectedFilenames}
-      onReleaseSuccess={mockOnReleaseSuccess}
-    />,
-  );
+  return render(<ReleasePanel selectedFilenames={selectedFilenames} />);
 }
 
 beforeEach(() => {
   localStorage.clear();
   useAppStore.setState({ username: "山田太郎" });
   mockMutateAsync.mockClear();
-  mockOnReleaseSuccess.mockClear();
 });
 
 describe("ReleasePanel", () => {
@@ -59,7 +52,7 @@ describe("ReleasePanel", () => {
     expect(screen.getByRole("radio", { name: "社外図渡し" })).not.toBeChecked();
   });
 
-  it("送信成功後にフォームがリセットされonReleaseSuccessが呼ばれる", async () => {
+  it("送信成功後にフォームがリセットされる", async () => {
     const user = userEvent.setup();
     renderPanel();
     await user.type(
@@ -68,7 +61,6 @@ describe("ReleasePanel", () => {
     );
     await user.click(screen.getByRole("button", { name: "図渡しを作成" }));
     expect(screen.getByRole("textbox", { name: "図渡し名称" })).toHaveValue("");
-    expect(mockOnReleaseSuccess).toHaveBeenCalledOnce();
   });
 
   it("送信時にusernameをcreatedByとして渡す", async () => {
