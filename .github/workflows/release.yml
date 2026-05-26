@@ -1,0 +1,72 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workdir: ./src-tauri
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+          run_install: false
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install frontend dependencies
+        run: pnpm install
+
+      - name: Download pdfium
+        shell: bash
+        run: |
+          curl -L "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium%2F7543/pdfium-win-x64.tgz" -o pdfium.tgz
+          mkdir -p tmp_pdfium
+          tar -xzf pdfium.tgz -C tmp_pdfium
+          cp tmp_pdfium/lib/pdfium.dll src-tauri/pdfium.dll
+
+      - name: Build and release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: velgit ${{ github.ref_name }}
+          releaseBody: |
+            ## インストール方法
+            - **インストーラー版**: `velgit_x.x.x_x64-setup.exe` をダウンロードして実行
+            - **MSI版**: `velgit_x.x.x_x64_en-US.msi` をダウンロードして実行
+          releaseDraft: true
+          prerelease: false
