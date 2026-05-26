@@ -44,7 +44,7 @@ export function ReleasePanel({
         </label>
         <Input
           id="release-name"
-          aria-label="図渡し名称"
+          aria-label="図面セット名称"
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
@@ -98,7 +98,7 @@ export function ReleasePanel({
           onClick={handleSubmit}
           className="ml-auto"
         >
-          {isPending ? "送信中..." : "図渡しを作成"}
+          {isPending ? "送信中..." : "図面セットを作成"}
         </Button>
       </div>
     </div>

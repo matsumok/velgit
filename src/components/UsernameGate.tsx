@@ -25,7 +25,7 @@ export function UsernameGate({ children }: { children: React.ReactNode }) {
       <DialogContent showCloseButton={false}>
         <DialogHeader>
           <DialogTitle>ユーザー名を入力してください</DialogTitle>
-          <DialogDescription>コミットと図渡しに記録されます</DialogDescription>
+          <DialogDescription>コミットに記録されます</DialogDescription>
         </DialogHeader>
         <Input
           placeholder="例: 山田太郎"

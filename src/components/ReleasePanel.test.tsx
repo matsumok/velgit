@@ -33,17 +33,21 @@ describe("ReleasePanel", () => {
 
   it("名称が空のとき送信ボタンがdisabled", () => {
     renderPanel();
-    expect(screen.getByRole("button", { name: "図渡しを作成" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "図面セットを作成" }),
+    ).toBeDisabled();
   });
 
   it("図面が0件のとき送信ボタンがdisabled", async () => {
     const user = userEvent.setup();
     renderPanel([]);
     await user.type(
-      screen.getByRole("textbox", { name: "図渡し名称" }),
+      screen.getByRole("textbox", { name: "図面セット名称" }),
       "第1回",
     );
-    expect(screen.getByRole("button", { name: "図渡しを作成" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "図面セットを作成" }),
+    ).toBeDisabled();
   });
 
   it("デフォルト種別が「社内図渡し」", () => {
@@ -56,21 +60,23 @@ describe("ReleasePanel", () => {
     const user = userEvent.setup();
     renderPanel();
     await user.type(
-      screen.getByRole("textbox", { name: "図渡し名称" }),
+      screen.getByRole("textbox", { name: "図面セット名称" }),
       "第1回",
     );
-    await user.click(screen.getByRole("button", { name: "図渡しを作成" }));
-    expect(screen.getByRole("textbox", { name: "図渡し名称" })).toHaveValue("");
+    await user.click(screen.getByRole("button", { name: "図面セットを作成" }));
+    expect(screen.getByRole("textbox", { name: "図面セット名称" })).toHaveValue(
+      "",
+    );
   });
 
   it("送信時にusernameをcreatedByとして渡す", async () => {
     const user = userEvent.setup();
     renderPanel();
     await user.type(
-      screen.getByRole("textbox", { name: "図渡し名称" }),
+      screen.getByRole("textbox", { name: "図面セット名称" }),
       "第1回",
     );
-    await user.click(screen.getByRole("button", { name: "図渡しを作成" }));
+    await user.click(screen.getByRole("button", { name: "図面セットを作成" }));
     expect(mockMutateAsync).toHaveBeenCalledWith(
       expect.objectContaining({
         createdBy: "山田太郎",
