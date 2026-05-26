@@ -1,4 +1,9 @@
-import { GitBranchIcon, MoonIcon, SunIcon } from "@phosphor-icons/react";
+import {
+  GitBranchIcon,
+  MoonIcon,
+  SunIcon,
+  UserIcon,
+} from "@phosphor-icons/react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,7 +32,7 @@ export function AppHeader() {
         <GitBranchIcon className="size-4 text-primary" />
         <span className="text-sm font-semibold tracking-tight">velgit</span>
       </div>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-4">
         <Button
           variant="ghost"
           size="sm"
@@ -36,6 +41,7 @@ export function AppHeader() {
             setOpen(true);
           }}
         >
+          <UserIcon className="size-3.5" />
           {username}
         </Button>
         <Button

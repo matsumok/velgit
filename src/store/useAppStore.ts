@@ -15,6 +15,8 @@ interface AppState {
   setSelectedDrawing: (filename: string | null) => void;
   selectedCommitOid: string | "HEAD";
   setSelectedCommitOid: (oid: string | "HEAD") => void;
+  selectedReleaseId: number | null;
+  selectRelease: (id: number, commitOid: string) => void;
   username: string | null;
   setUsername: (name: string) => void;
   jobs: Job[];
@@ -37,11 +39,16 @@ export const useAppStore = create<AppState>()(
           selectedProject: project,
           selectedCommitOid: "HEAD",
           selectedDrawing: null,
+          selectedReleaseId: null,
         }),
       selectedDrawing: null,
       setSelectedDrawing: (filename) => set({ selectedDrawing: filename }),
       selectedCommitOid: "HEAD",
-      setSelectedCommitOid: (oid) => set({ selectedCommitOid: oid }),
+      setSelectedCommitOid: (oid) =>
+        set({ selectedCommitOid: oid, selectedReleaseId: null }),
+      selectedReleaseId: null,
+      selectRelease: (id, commitOid) =>
+        set({ selectedReleaseId: id, selectedCommitOid: commitOid }),
       username: null,
       setUsername: (name) => set({ username: name }),
       jobs: [],
@@ -60,6 +67,7 @@ export const useAppStore = create<AppState>()(
           selectedProject: job?.path ?? null,
           selectedCommitOid: "HEAD",
           selectedDrawing: null,
+          selectedReleaseId: null,
           isProjectReady: false,
         });
       },

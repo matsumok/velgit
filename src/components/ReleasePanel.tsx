@@ -33,9 +33,9 @@ export function ReleasePanel({
 
   return (
     <div className="p-4 border-t space-y-3">
-      <p className="text-sm text-muted-foreground mb-3">図面セット作成</p>
+      <p className="text-sm mb-3">図面セット作成</p>
 
-      <div className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-4">
+      <div className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-4 items-center">
         <label
           htmlFor="release-name"
           className="block text-xs text-muted-foreground"

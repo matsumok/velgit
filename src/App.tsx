@@ -6,6 +6,7 @@ import { useGetPendingChanges } from "./api/pendingChanges";
 import { useInitProject } from "./api/project";
 import { useGetDrawingsAtCommit } from "./api/projectCommits";
 import { queryKeys } from "./api/queryKeys";
+import { useGetReleaseDrawings } from "./api/releases";
 import { CommitPanel } from "./components/commit/CommitPanel";
 import { JobSelector } from "./components/JobSelector";
 import { AppHeader } from "./components/layout/AppHeader";
@@ -13,9 +14,11 @@ import { CommitHistoryPanel } from "./components/layout/CommitHistoryPanel";
 import { DrawingTable } from "./components/layout/DrawingTable";
 import { ThreePaneLayout } from "./components/layout/ThreePaneLayout";
 import { ProjectTimeline } from "./components/ProjectTimeline";
+import { ReleaseDetailPanel } from "./components/ReleaseDetailPanel";
 import { ReleasePanel } from "./components/ReleasePanel";
 import { UsernameGate } from "./components/UsernameGate";
 import { Button } from "./components/ui/button";
+import { useAppMode } from "./hooks/useAppMode";
 import { resolveDrawingStatuses } from "./lib/drawingStatus";
 import { useAppStore } from "./store/useAppStore";
 
@@ -38,26 +41,36 @@ function CenterPane() {
   const { data: headDrawings = [] } = useGetDrawings();
   const { data: pastDrawings } = useGetDrawingsAtCommit(selectedCommitOid);
 
+  const appMode = useAppMode();
+  const releaseId = appMode.mode === "release" ? appMode.releaseId : null;
+  const { data: releaseDrawings = [] } = useGetReleaseDrawings(releaseId);
+
   const [selectedFilenames, setSelectedFilenames] = useState<string[]>([]);
 
-  const mode =
-    selectedCommitOid !== "HEAD"
-      ? "browse"
-      : changes.length > 0
-        ? "commit"
-        : "release";
+  const tableMode =
+    appMode.mode === "head-commit"
+      ? "commit"
+      : appMode.mode === "head-idle"
+        ? "release"
+        : "browse";
 
-  const rows = useMemo(
-    () =>
-      selectedCommitOid === "HEAD"
-        ? resolveDrawingStatuses(headDrawings, changes)
-        : (pastDrawings ?? []).map((filename) => ({
-            filename,
-            status: "unchanged" as const,
-            isMinor: false,
-          })),
-    [selectedCommitOid, headDrawings, pastDrawings, changes],
-  );
+  const rows = useMemo(() => {
+    if (appMode.mode === "release") {
+      return releaseDrawings.map((filename) => ({
+        filename,
+        status: "unchanged" as const,
+        isMinor: false,
+      }));
+    }
+    if (appMode.mode === "browse") {
+      return (pastDrawings ?? []).map((filename) => ({
+        filename,
+        status: "unchanged" as const,
+        isMinor: false,
+      }));
+    }
+    return resolveDrawingStatuses(headDrawings, changes);
+  }, [appMode, releaseDrawings, pastDrawings, headDrawings, changes]);
 
   if (!selectedProject) {
     return (
@@ -76,16 +89,19 @@ function CenterPane() {
     <div className="flex flex-col h-full">
       <DrawingTable
         rows={rows}
-        mode={mode}
+        mode={tableMode}
         onPreviewChange={setSelectedDrawing}
         onSelectionChange={setSelectedFilenames}
       />
-      {selectedCommitOid === "HEAD" &&
-        (mode === "commit" ? (
-          <CommitPanel selectedFilenames={selectedFilenames} />
-        ) : (
-          <ReleasePanel selectedFilenames={selectedFilenames} />
-        ))}
+      {appMode.mode === "head-commit" && (
+        <CommitPanel selectedFilenames={selectedFilenames} />
+      )}
+      {appMode.mode === "head-idle" && (
+        <ReleasePanel selectedFilenames={selectedFilenames} />
+      )}
+      {appMode.mode === "release" && (
+        <ReleaseDetailPanel releaseId={appMode.releaseId} />
+      )}
     </div>
   );
 }

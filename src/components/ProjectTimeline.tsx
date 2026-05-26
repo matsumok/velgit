@@ -1,10 +1,11 @@
+import { TagIcon } from "@phosphor-icons/react";
 import { useMemo } from "react";
 import { useGetProjectCommits } from "../api/projectCommits";
 import { useListReleases } from "../api/releases";
 import { mergeTimelineEntries, type TimelineEntry } from "../lib/timeline";
 import { cn } from "../lib/utils";
 import { useAppStore } from "../store/useAppStore";
-import { Badge } from "./ui/badge";
+import { ReleaseKindBadge } from "./ReleaseKindBadge";
 import { Button } from "./ui/button";
 import { ScrollArea } from "./ui/scroll-area";
 
@@ -80,30 +81,49 @@ function CommitItem({
 
 function ReleaseItem({
   entry,
+  selected,
+  onClick,
 }: {
   entry: Extract<TimelineEntry, { type: "release" }>;
+  selected: boolean;
+  onClick: () => void;
 }) {
   return (
-    <div className="relative pl-5 pr-3 py-2">
-      <span className="absolute left-0 -translate-x-1/2 top-3 size-3 rounded-full bg-background border-2 border-muted-foreground/30 shrink-0" />
+    <Button
+      variant="ghost"
+      onClick={onClick}
+      className={cn(
+        "relative w-full justify-start pl-5 pr-3 py-2 h-auto font-normal",
+        selected && "bg-muted",
+      )}
+    >
+      <TagIcon
+        className={cn(
+          "absolute left-0 -translate-x-1/2 top-2 size-5 shrink-0",
+          selected ? "text-primary" : "text-muted-foreground",
+        )}
+      />
       <div className="flex items-center gap-2 flex-wrap">
-        <Badge variant="secondary" className="text-xs">
-          {entry.kind === "external" ? "社外" : "社内"}
-        </Badge>
+        <ReleaseKindBadge kind={entry.kind} />
         <span className="text-xs truncate">{entry.name}</span>
       </div>
       <p className="text-xs text-muted-foreground mt-1">
         {formatDate(entry.timestamp)}
       </p>
-    </div>
+    </Button>
   );
 }
 
 export function ProjectTimeline() {
   const { data: commits = [] } = useGetProjectCommits();
   const { data: releases = [] } = useListReleases();
-  const { selectedCommitOid, setSelectedCommitOid, selectedProject } =
-    useAppStore();
+  const {
+    selectedCommitOid,
+    setSelectedCommitOid,
+    selectedProject,
+    selectedReleaseId,
+    selectRelease,
+  } = useAppStore();
 
   const entries = useMemo(
     () => mergeTimelineEntries(commits, releases),
@@ -139,12 +159,21 @@ export function ProjectTimeline() {
               <CommitItem
                 key={entry.oid}
                 entry={entry}
-                selected={selectedCommitOid === entry.oid}
+                selected={
+                  selectedReleaseId === null && selectedCommitOid === entry.oid
+                }
                 onClick={() => setSelectedCommitOid(entry.oid)}
               />
             );
           }
-          return <ReleaseItem key={`release-${entry.id}`} entry={entry} />;
+          return (
+            <ReleaseItem
+              key={`release-${entry.id}`}
+              entry={entry}
+              selected={selectedReleaseId === entry.id}
+              onClick={() => selectRelease(entry.id, entry.commitOid)}
+            />
+          );
         })}
       </div>
     </ScrollArea>

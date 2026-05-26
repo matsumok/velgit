@@ -135,7 +135,7 @@ export function DrawingTable({
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <p className="text-xs text-muted-foreground px-4 pt-3 pb-1">図面一覧</p>
+      <p className="text-sm px-4 pt-3 pb-1">図面一覧</p>
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((hg) => (
