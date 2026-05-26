@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAppStore } from "../store/useAppStore";
 import { Button } from "./ui/button";
+import { Input } from "./ui/input";
 import {
   Dialog,
   DialogContent,
@@ -26,9 +27,7 @@ export function UsernameGate({ children }: { children: React.ReactNode }) {
           <DialogTitle>ユーザー名を入力してください</DialogTitle>
           <DialogDescription>コミットと図渡しに記録されます</DialogDescription>
         </DialogHeader>
-        <input
-          type="text"
-          className="w-full rounded border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+        <Input
           placeholder="例: 山田太郎"
           value={input}
           onChange={(e) => setInput(e.target.value)}

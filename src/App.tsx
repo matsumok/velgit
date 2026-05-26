@@ -6,6 +6,7 @@ import { useGetPendingChanges } from "./api/pendingChanges";
 import { useInitProject } from "./api/project";
 import { useGetDrawingsAtCommit } from "./api/projectCommits";
 import { queryKeys } from "./api/queryKeys";
+import { Button } from "./components/ui/button";
 import { CommitPanel } from "./components/commit/CommitPanel";
 import { JobSelector } from "./components/JobSelector";
 import { AppHeader } from "./components/layout/AppHeader";
@@ -16,7 +17,6 @@ import { ProjectTimeline } from "./components/ProjectTimeline";
 import { ReleasePanel } from "./components/ReleasePanel";
 import { UsernameGate } from "./components/UsernameGate";
 import { resolveDrawingStatuses } from "./lib/drawingStatus";
-import { cn } from "./lib/utils";
 import { useAppStore } from "./store/useAppStore";
 
 function LeftPane() {
@@ -65,17 +65,9 @@ function CenterPane() {
         {error && (
           <p className="text-sm text-destructive px-4 text-center">{error}</p>
         )}
-        <button
-          type="button"
-          onClick={openFolder}
-          disabled={loading}
-          className={cn(
-            "px-4 py-2 rounded text-sm bg-primary text-primary-foreground",
-            loading && "opacity-50 cursor-not-allowed",
-          )}
-        >
+        <Button onClick={openFolder} disabled={loading}>
           {loading ? "初期化中..." : "ワーキングフォルダを開く"}
-        </button>
+        </Button>
       </div>
     );
   }

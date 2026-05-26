@@ -5,6 +5,7 @@ import { mergeTimelineEntries, type TimelineEntry } from "../lib/timeline";
 import { cn } from "../lib/utils";
 import { useAppStore } from "../store/useAppStore";
 import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
 import { ScrollArea } from "./ui/scroll-area";
 
 function formatDate(timestamp: number): string {
@@ -35,18 +36,18 @@ function HeadItem({
   onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
+    <Button
+      variant="ghost"
       onClick={onClick}
       className={cn(
-        "relative w-full text-left pl-5 pr-3 py-2 hover:bg-muted/60 transition-colors",
+        "relative w-full justify-start pl-5 pr-3 py-2 h-auto",
         selected && "bg-muted",
       )}
     >
       <TimelineDot selected={selected} />
-      <span className="text-xs font-semibold">HEAD</span>
-      <span className="ml-2 text-xs text-muted-foreground">（作業コピー）</span>
-    </button>
+      <span className="font-semibold">HEAD</span>
+      <span className="ml-2 text-muted-foreground">（作業コピー）</span>
+    </Button>
   );
 }
 
@@ -60,20 +61,20 @@ function CommitItem({
   onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
+    <Button
+      variant="ghost"
       onClick={onClick}
       className={cn(
-        "relative w-full text-left pl-5 pr-3 py-2 hover:bg-muted/60 transition-colors",
+        "relative w-full justify-start pl-5 pr-3 py-2 h-auto font-normal",
         selected && "bg-muted",
       )}
     >
       <TimelineDot selected={selected} />
-      <p className="text-xs truncate">{entry.message}</p>
-      <p className="text-xs text-muted-foreground mt-1">
+      <p className="truncate font-medium">{entry.message}</p>
+      <p className="text-muted-foreground mt-1">
         {entry.author} · {formatDate(entry.timestamp)}
       </p>
-    </button>
+    </Button>
   );
 }
 

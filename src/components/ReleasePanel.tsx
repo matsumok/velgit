@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useCreateRelease } from "../api/releases";
-import { cn } from "../lib/utils";
 import { useAppStore } from "../store/useAppStore";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
 
 export function ReleasePanel({
   selectedFilenames,
@@ -41,11 +42,9 @@ export function ReleasePanel({
         >
           名称
         </label>
-        <input
+        <Input
           id="release-name"
-          type="text"
           aria-label="図渡し名称"
-          className="flex-1 rounded border border-input bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
@@ -80,10 +79,8 @@ export function ReleasePanel({
         >
           相手先
         </label>
-        <input
+        <Input
           id="release-recipient"
-          type="text"
-          className="flex-1 rounded border border-input bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
           value={recipient}
           onChange={(e) => setRecipient(e.target.value)}
         />
@@ -96,17 +93,13 @@ export function ReleasePanel({
           </p>
         )}
 
-        <button
-          type="button"
+        <Button
           disabled={isDisabled || isPending}
           onClick={handleSubmit}
-          className={cn(
-            "px-3 py-2 rounded text-sm bg-primary text-primary-foreground ml-auto",
-            (isDisabled || isPending) && "opacity-50 cursor-not-allowed",
-          )}
+          className="ml-auto"
         >
           {isPending ? "送信中..." : "図渡しを作成"}
-        </button>
+        </Button>
       </div>
     </div>
   );

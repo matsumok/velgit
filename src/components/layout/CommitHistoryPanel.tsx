@@ -6,6 +6,7 @@ import { useGetPendingChanges } from "../../api/pendingChanges";
 import { useGetProjectCommits } from "../../api/projectCommits";
 import { cn } from "../../lib/utils";
 import { useAppStore } from "../../store/useAppStore";
+import { Button } from "../ui/button";
 import { ScrollArea } from "../ui/scroll-area";
 import { DiffView } from "./DiffView";
 import { ImageDialog } from "./ImageDialog";
@@ -186,13 +187,13 @@ export function CommitHistoryPanel() {
                   : sameAsCurrentState;
               return (
                 <li key={commit.oid}>
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
                     onClick={() =>
                       setSelectedHistoryOid(selected ? null : commit.oid)
                     }
                     className={cn(
-                      "w-full text-left px-3 py-2 text-xs hover:bg-muted/60 transition-colors",
+                      "w-full justify-start h-auto px-3 py-2 font-normal",
                       selected && "bg-muted",
                       isFaded && "opacity-40",
                     )}
@@ -201,7 +202,7 @@ export function CommitHistoryPanel() {
                     <p className="text-muted-foreground mt-1">
                       {commit.author} · {formatDate(commit.timestamp)}
                     </p>
-                  </button>
+                  </Button>
                 </li>
               );
             })}

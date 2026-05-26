@@ -1,13 +1,13 @@
 import { GitBranchIcon, MoonIcon, SunIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
 
 export function AppHeader() {
@@ -28,20 +28,20 @@ export function AppHeader() {
         <span className="text-sm font-semibold tracking-tight">velgit</span>
       </div>
       <div className="flex items-center gap-1">
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => {
             setInput(username ?? "");
             setOpen(true);
           }}
-          className="text-xs px-2 py-1 rounded hover:bg-muted"
         >
           {username}
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          className="p-1.5 rounded hover:bg-muted"
           aria-label="テーマ切替"
         >
           {theme === "dark" ? (
@@ -49,19 +49,14 @@ export function AppHeader() {
           ) : (
             <MoonIcon className="size-4" />
           )}
-        </button>
+        </Button>
       </div>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>ユーザー名を変更</DialogTitle>
           </DialogHeader>
-          <input
-            type="text"
-            className={cn(
-              "w-full rounded border border-input bg-background px-3 py-2 text-sm",
-              "focus:outline-none focus:ring-1 focus:ring-ring",
-            )}
+          <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {

@@ -2,6 +2,7 @@ import { CaretDownIcon, FolderOpenIcon, PlusIcon } from "@phosphor-icons/react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -46,14 +47,14 @@ export function JobSelector() {
   return (
     <>
       <div className="relative px-2 py-2">
-        <button
-          type="button"
+        <Button
+          variant="ghost"
           onClick={() => setPopoverOpen((v) => !v)}
-          className="w-full flex items-center justify-between gap-1 px-2 py-1.5 text-sm font-medium hover:bg-muted rounded"
+          className="w-full justify-between gap-1 font-medium"
         >
           <span className="truncate">{selectedJob?.name ?? "Job未選択"}</span>
           <CaretDownIcon className="size-3 shrink-0 text-muted-foreground" />
-        </button>
+        </Button>
 
         {popoverOpen && (
           <>
@@ -72,32 +73,34 @@ export function JobSelector() {
                     .sort((a, b) => b.createdAt - a.createdAt)
                     .map((job) => (
                       <li key={job.id}>
-                        <button
-                          type="button"
-                          className="w-full text-left px-2 py-1.5 text-xs rounded hover:bg-muted truncate"
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full justify-start truncate"
                           onClick={() => {
                             selectJob(job.id);
                             setPopoverOpen(false);
                           }}
                         >
                           {job.name}
-                        </button>
+                        </Button>
                       </li>
                     ))}
                 </ul>
               )}
               <div className="border-t mt-1 pt-1">
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => {
                     setPopoverOpen(false);
                     setDialogOpen(true);
                   }}
-                  className="w-full flex items-center gap-1.5 px-2 py-1.5 text-xs rounded hover:bg-muted text-muted-foreground"
+                  className="w-full justify-start text-muted-foreground"
                 >
                   <PlusIcon className="size-3" />
                   新規Job登録
-                </button>
+                </Button>
               </div>
             </div>
           </>
@@ -128,9 +131,7 @@ export function JobSelector() {
               <label className="text-xs text-muted-foreground mb-1 block">
                 Job名
               </label>
-              <input
-                type="text"
-                className="w-full rounded border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              <Input
                 value={newJobName}
                 onChange={(e) => setNewJobName(e.target.value)}
                 onKeyDown={(e) => {
