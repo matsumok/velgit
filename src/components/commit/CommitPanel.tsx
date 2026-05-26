@@ -18,6 +18,10 @@ export function CommitPanel({
     if (isPending) setBackgroundTask("コミット中...");
   }, [isPending, setBackgroundTask]);
 
+  useEffect(() => {
+    if (error) setBackgroundTask(null);
+  }, [error, setBackgroundTask]);
+
   function handleCommit() {
     if (!message.trim() || !username || selectedFilenames.length === 0) return;
     commitChanges(

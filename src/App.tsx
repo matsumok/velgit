@@ -28,7 +28,7 @@ function LeftPaneSpinner() {
   return (
     <div className="shrink-0 border-t px-3 py-2 flex items-center gap-2">
       <div className="size-3 rounded-full border-2 border-muted border-t-muted-foreground animate-spin shrink-0" />
-      <p className="text-xs text-muted-foreground">{backgroundTask}</p>
+      <p className="text-xs text-muted-foreground truncate">{backgroundTask}</p>
     </div>
   );
 }

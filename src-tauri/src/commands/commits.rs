@@ -66,6 +66,11 @@ pub async fn commit_changes(
     }
 
     // バックグラウンドで画像キャッシュ生成とビジュアル差分計算を並行実行
+    // pool が None の場合はバックグラウンド処理なし → 即座に classified を emit
+    if pool.is_none() {
+        use tauri::Emitter;
+        let _ = app_handle.emit("commit-classified", ());
+    }
     if let Some(pool) = pool {
         let path_bg = path.clone();
         let oid_bg = oid_str.clone();

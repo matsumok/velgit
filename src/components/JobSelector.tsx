@@ -60,6 +60,7 @@ export function JobSelector() {
           <>
             <button
               type="button"
+              tabIndex={-1}
               aria-label="閉じる"
               className="fixed inset-0 z-10 cursor-default bg-transparent p-0 border-0"
               onClick={() => setPopoverOpen(false)}

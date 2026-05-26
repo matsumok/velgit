@@ -148,8 +148,6 @@ export function CommitHistoryPanel() {
       setBackgroundTask("差分を生成中...");
     } else if (activePreviewLoading) {
       setBackgroundTask("プレビューを生成中...");
-    } else {
-      setBackgroundTask(null);
     }
     return () => setBackgroundTask(null);
   }, [diffLoading, activePreviewLoading, setBackgroundTask]);
