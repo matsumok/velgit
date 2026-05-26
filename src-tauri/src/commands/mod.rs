@@ -36,6 +36,7 @@ pub struct CommitEntryDto {
     pub author: String,
     pub timestamp: i64,
     pub change_type: Option<String>,
+    pub blob_oid: Option<String>,
 }
 
 impl From<CommitEntry> for CommitEntryDto {
@@ -46,6 +47,7 @@ impl From<CommitEntry> for CommitEntryDto {
             author: e.author,
             timestamp: e.timestamp,
             change_type: None,
+            blob_oid: None,
         }
     }
 }

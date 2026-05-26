@@ -95,6 +95,7 @@ pub struct CommitEntry {
     pub message: String,
     pub author: String,
     pub timestamp: i64,
+    pub blob_oid: String,
 }
 
 pub fn commit_history(repo_path: &Path, filename: &str) -> Result<Vec<CommitEntry>, git2::Error> {
@@ -125,6 +126,7 @@ pub fn commit_history(repo_path: &Path, filename: &str) -> Result<Vec<CommitEntr
             message: commit.message().unwrap_or("").trim().to_string(),
             author: commit.author().name().unwrap_or("").to_string(),
             timestamp: commit.time().seconds(),
+            blob_oid: entry.id().to_string(),
         });
     }
     Ok(entries)

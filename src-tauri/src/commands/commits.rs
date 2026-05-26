@@ -187,6 +187,7 @@ pub async fn get_commit_history(
                 author: e.author,
                 timestamp: e.timestamp,
                 change_type,
+                blob_oid: Some(e.blob_oid),
             }
         })
         .collect();

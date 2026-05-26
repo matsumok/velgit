@@ -171,11 +171,18 @@ export function CommitHistoryPanel() {
           <ul className="py-1">
             {historyCommits.map((commit) => {
               const selected = selectedHistoryOid === commit.oid;
-              const effectiveChangeType =
+              // 現在状態（topItem）と blob OID が一致 → 内容が同一 → グレーアウト
+              // 未コミット状態の場合は blob 比較不可のためグレーアウトしない
+              const sameAsCurrentState =
+                !hasUncommitted &&
+                topItem?.blobOid != null &&
+                commit.blobOid != null &&
+                commit.blobOid === topItem.blobOid;
+              // 選択済みで diff 結果が出た場合は diff 結果で上書き
+              const isFaded =
                 selected && diffResult
-                  ? diffResult.changeType
-                  : commit.changeType;
-              const isFaded = effectiveChangeType !== "meaningful";
+                  ? diffResult.changeType === "none"
+                  : sameAsCurrentState;
               return (
                 <li key={commit.oid}>
                   <button

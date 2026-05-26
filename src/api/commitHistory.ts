@@ -9,6 +9,7 @@ export interface CommitEntry {
   author: string;
   timestamp: number;
   changeType: string | null;
+  blobOid: string | null;
 }
 
 export function useGetCommitHistory() {
