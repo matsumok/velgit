@@ -58,10 +58,10 @@ export function JobSelector() {
 
         {popoverOpen && (
           <>
-            <Button
-              variant="ghost"
+            <button
+              type="button"
               aria-label="閉じる"
-              className="fixed inset-0 z-10 h-auto rounded-none p-0"
+              className="fixed inset-0 z-10 cursor-default bg-transparent p-0 border-0"
               onClick={() => setPopoverOpen(false)}
             />
             <div className="absolute left-2 right-2 top-full z-20 mt-0.5 rounded border bg-popover text-popover-foreground shadow-md p-1">

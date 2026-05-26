@@ -59,6 +59,12 @@ pub async fn commit_changes(
             .map_err(|e| e.to_string())?;
     }
 
+    // 初期レコード挿入完了 → フロントのタイムラインを即時更新
+    {
+        use tauri::Emitter;
+        let _ = app_handle.emit("commit-created", ());
+    }
+
     // バックグラウンドで画像キャッシュ生成とビジュアル差分計算を並行実行
     if let Some(pool) = pool {
         let path_bg = path.clone();
@@ -67,7 +73,16 @@ pub async fn commit_changes(
         let app_handle_bg = app_handle.clone();
         tauri::async_runtime::spawn(async move {
             use tauri::Emitter;
-            for filename in &files_bg {
+            let total = files_bg.len();
+            for (idx, filename) in files_bg.iter().enumerate() {
+                let _ = app_handle_bg.emit(
+                    "commit-classify-progress",
+                    serde_json::json!({
+                        "current": idx + 1,
+                        "total": total,
+                        "filename": filename,
+                    }),
+                );
                 let filename = filename.clone();
                 let path = path_bg.clone();
                 let oid_str = oid_bg.clone();

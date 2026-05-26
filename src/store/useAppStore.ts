@@ -28,6 +28,8 @@ interface AppState {
   setTheme: (theme: "light" | "dark") => void;
   isProjectReady: boolean;
   setProjectReady: (ready: boolean) => void;
+  backgroundTask: string | null;
+  setBackgroundTask: (task: string | null) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -75,6 +77,8 @@ export const useAppStore = create<AppState>()(
       setTheme: (theme) => set({ theme }),
       isProjectReady: false,
       setProjectReady: (ready) => set({ isProjectReady: ready }),
+      backgroundTask: null,
+      setBackgroundTask: (task) => set({ backgroundTask: task }),
     }),
     {
       name: "velgit-store",

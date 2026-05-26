@@ -22,6 +22,17 @@ import { useAppMode } from "./hooks/useAppMode";
 import { resolveDrawingStatuses } from "./lib/drawingStatus";
 import { useAppStore } from "./store/useAppStore";
 
+function LeftPaneSpinner() {
+  const backgroundTask = useAppStore((s) => s.backgroundTask);
+  if (!backgroundTask) return null;
+  return (
+    <div className="shrink-0 border-t px-3 py-2 flex items-center gap-2">
+      <div className="size-3 rounded-full border-2 border-muted border-t-muted-foreground animate-spin shrink-0" />
+      <p className="text-xs text-muted-foreground">{backgroundTask}</p>
+    </div>
+  );
+}
+
 function LeftPane() {
   return (
     <div className="flex flex-col h-full">
@@ -29,6 +40,7 @@ function LeftPane() {
         <JobSelector />
       </div>
       <ProjectTimeline />
+      <LeftPaneSpinner />
     </div>
   );
 }
@@ -154,12 +166,23 @@ function useThemeSync() {
   }, [theme]);
 }
 
-function useCommitClassifiedListener() {
+function useCommitCreatedListener() {
   const queryClient = useQueryClient();
   const selectedProject = useAppStore((s) => s.selectedProject);
+  const setBackgroundTask = useAppStore((s) => s.setBackgroundTask);
   useEffect(() => {
-    const unlisten = listen("commit-classified", () => {
+    const unlisten = listen("commit-created", () => {
+      setBackgroundTask("画像処理中...");
       if (!selectedProject) return;
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.pendingChanges(selectedProject),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.drawings(selectedProject),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.projectCommits(selectedProject),
+      });
       queryClient.invalidateQueries({
         queryKey: queryKeys.commitHistoryBase(selectedProject),
       });
@@ -167,13 +190,44 @@ function useCommitClassifiedListener() {
     return () => {
       unlisten.then((fn) => fn());
     };
-  }, [queryClient, selectedProject]);
+  }, [queryClient, selectedProject, setBackgroundTask]);
+}
+
+function useCommitClassifiedListener() {
+  const setBackgroundTask = useAppStore((s) => s.setBackgroundTask);
+  useEffect(() => {
+    const unlisten = listen("commit-classified", () => {
+      setBackgroundTask(null);
+    });
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [setBackgroundTask]);
+}
+
+function useClassifyProgressListener() {
+  const setBackgroundTask = useAppStore((s) => s.setBackgroundTask);
+  useEffect(() => {
+    const unlisten = listen<{
+      current: number;
+      total: number;
+      filename: string;
+    }>("commit-classify-progress", (e) => {
+      const { current, total, filename } = e.payload;
+      setBackgroundTask(`画像処理中 (${current}/${total}): ${filename}`);
+    });
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [setBackgroundTask]);
 }
 
 function App() {
   usePdfChangedListener();
   useThemeSync();
+  useCommitCreatedListener();
   useCommitClassifiedListener();
+  useClassifyProgressListener();
   const isPolling = useWatcherState();
   return (
     <UsernameGate>

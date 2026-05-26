@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useCommitChanges } from "../../api/pendingChanges";
 import { useAppStore } from "../../store/useAppStore";
 import { Button } from "../ui/button";
@@ -11,7 +11,12 @@ export function CommitPanel({
 }) {
   const { mutate: commitChanges, isPending, error } = useCommitChanges();
   const username = useAppStore((s) => s.username);
+  const setBackgroundTask = useAppStore((s) => s.setBackgroundTask);
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (isPending) setBackgroundTask("コミット中...");
+  }, [isPending, setBackgroundTask]);
 
   function handleCommit() {
     if (!message.trim() || !username || selectedFilenames.length === 0) return;

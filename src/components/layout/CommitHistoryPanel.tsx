@@ -8,6 +8,7 @@ import { cn } from "../../lib/utils";
 import { useAppStore } from "../../store/useAppStore";
 import { Button } from "../ui/button";
 import { ScrollArea } from "../ui/scroll-area";
+import { Separator } from "../ui/separator";
 import { DiffView } from "./DiffView";
 import { ImageDialog } from "./ImageDialog";
 
@@ -23,6 +24,25 @@ const CHANGE_TYPE_LABEL: Record<string, string> = {
   minor: "微小変更",
   meaningful: "意味的変更",
 };
+
+function CommitRowContent({
+  message,
+  author,
+  timestamp,
+}: {
+  message: string;
+  author: string;
+  timestamp: number;
+}) {
+  return (
+    <div className="flex flex-col gap-1 pl-2">
+      <p className="text-left truncate text-xs font-medium">{message}</p>
+      <p className="text-xs text-muted-foreground mt-0.5">
+        {author} · {formatDate(timestamp)}
+      </p>
+    </div>
+  );
+}
 
 function Spinner({ className }: { className?: string }) {
   return (
@@ -122,6 +142,18 @@ export function CommitHistoryPanel() {
     selectedHistoryOid !== null ? diffBaseOid : null,
   );
 
+  const setBackgroundTask = useAppStore((s) => s.setBackgroundTask);
+  useEffect(() => {
+    if (diffLoading) {
+      setBackgroundTask("差分を生成中...");
+    } else if (activePreviewLoading) {
+      setBackgroundTask("プレビューを生成中...");
+    } else {
+      setBackgroundTask(null);
+    }
+    return () => setBackgroundTask(null);
+  }, [diffLoading, activePreviewLoading, setBackgroundTask]);
+
   if (!selectedDrawing) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -135,31 +167,37 @@ export function CommitHistoryPanel() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* ファイル名 */}
-      <div className="shrink-0 px-3 py-2 border-b">
-        <p className="text-xs text-muted-foreground truncate">
-          {selectedDrawing}
-        </p>
+      <div className="shrink-0 px-3 py-2">
+        <p className="text-sm truncate">{selectedDrawing}</p>
       </div>
+      <Separator />
 
-      {/* 現在地（非ボタン） */}
-      <div className="shrink-0 px-3 py-2 border-b">
+      {/* 現在地 */}
+      <div className="shrink-0 px-3 pt-2 pb-0.5">
+        <p className="text-xs mb-1">現在</p>
+      </div>
+      <div className="shrink-0 px-3 py-2">
         {listLoading ? (
-          <div className="flex h-8 items-center">
+          <div className="flex h-8 items-center px-3">
             <Spinner className="size-3" />
           </div>
         ) : hasUncommitted ? (
-          <p className="text-xs font-medium">未コミット</p>
+          <p className="text-xs font-medium pl-2">未コミット</p>
         ) : topItem ? (
-          <>
-            <p className="text-xs font-medium truncate">{topItem.message}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {topItem.author} · {formatDate(topItem.timestamp)}
-            </p>
-          </>
+          <CommitRowContent
+            message={topItem.message}
+            author={topItem.author}
+            timestamp={topItem.timestamp}
+          />
         ) : null}
       </div>
 
+      <Separator />
+
       {/* 履歴リスト（diff用ボタン） */}
+      <div className="shrink-0 px-3 pt-2">
+        <p className="text-xs mb-1">履歴</p>
+      </div>
       <ScrollArea className="flex-1 min-h-0">
         {listLoading ? (
           <div className="flex h-16 items-center justify-center">
@@ -192,10 +230,11 @@ export function CommitHistoryPanel() {
                       isFaded && "opacity-40",
                     )}
                   >
-                    <p className="truncate font-medium">{commit.message}</p>
-                    <p className="text-muted-foreground mt-1">
-                      {commit.author} · {formatDate(commit.timestamp)}
-                    </p>
+                    <CommitRowContent
+                      message={commit.message}
+                      author={commit.author}
+                      timestamp={commit.timestamp}
+                    />
                   </Button>
                 </li>
               );
