@@ -24,9 +24,10 @@ pub fn rasterize_to_image(data: &[u8], page: u32) -> Result<image::RgbaImage, Bo
     let pdfium = load_pdfium()?;
     let doc = pdfium.load_pdf_from_byte_slice(data, None)?;
     let page = doc.pages().get(page as u16)?;
+    // A3 @ 400 DPI: 420mm×400/25.4≈6614px, 297mm×400/25.4≈4677px
     let config = PdfRenderConfig::new()
-        .set_target_width(2480)
-        .set_maximum_height(3508);
+        .set_target_width(6614)
+        .set_maximum_height(6614);
     let bitmap = page.render_with_config(&config)?;
     let img = bitmap.as_image().into_rgba8();
     Ok(img)
