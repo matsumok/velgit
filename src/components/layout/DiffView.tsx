@@ -1,4 +1,4 @@
-import { cn } from "../../lib/utils";
+import { ImageDialog } from "./ImageDialog";
 
 interface DiffViewProps {
   imageUrl: string | null;
@@ -26,13 +26,8 @@ export function DiffView({ imageUrl, isLoading, error }: DiffViewProps) {
   if (!imageUrl) return null;
 
   return (
-    <div className={cn("w-full overflow-auto border-t border-border")}>
-      <img
-        src={imageUrl}
-        alt="図面プレビュー"
-        className="w-full"
-        draggable={false}
-      />
+    <div className="w-full border-t border-border">
+      <ImageDialog src={imageUrl} alt="差分プレビュー" />
     </div>
   );
 }

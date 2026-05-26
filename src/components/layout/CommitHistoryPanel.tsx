@@ -8,6 +8,7 @@ import { cn } from "../../lib/utils";
 import { useAppStore } from "../../store/useAppStore";
 import { ScrollArea } from "../ui/scroll-area";
 import { DiffView } from "./DiffView";
+import { ImageDialog } from "./ImageDialog";
 
 function formatDate(timestamp: number): string {
   return new Date(timestamp * 1000).toLocaleDateString("ja-JP", {
@@ -235,12 +236,7 @@ export function CommitHistoryPanel() {
             <Spinner />
           </div>
         ) : activePreviewUrl ? (
-          <img
-            src={activePreviewUrl}
-            alt="図面プレビュー"
-            className="w-full"
-            draggable={false}
-          />
+          <ImageDialog src={activePreviewUrl} alt="図面プレビュー" />
         ) : !hasUncommitted && resolvedPreviewOid === null ? (
           <div className="flex h-20 items-center justify-center">
             <p className="text-xs text-muted-foreground">
