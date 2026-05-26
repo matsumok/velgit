@@ -2,13 +2,13 @@ import { CaretDownIcon, FolderOpenIcon, PlusIcon } from "@phosphor-icons/react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { type Job, useAppStore } from "@/store/useAppStore";
 
 export function JobSelector() {
@@ -58,8 +58,10 @@ export function JobSelector() {
 
         {popoverOpen && (
           <>
-            <div
-              className="fixed inset-0 z-10"
+            <Button
+              variant="ghost"
+              aria-label="閉じる"
+              className="fixed inset-0 z-10 h-auto rounded-none p-0"
               onClick={() => setPopoverOpen(false)}
             />
             <div className="absolute left-2 right-2 top-full z-20 mt-0.5 rounded border bg-popover text-popover-foreground shadow-md p-1">
@@ -114,9 +116,7 @@ export function JobSelector() {
           </DialogHeader>
           <div className="flex flex-col gap-3">
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">
-                フォルダ
-              </label>
+              <p className="text-xs text-muted-foreground mb-1">フォルダ</p>
               <div className="flex gap-2">
                 <span className="flex-1 text-xs px-2 py-1.5 rounded border border-input bg-muted truncate text-muted-foreground min-w-0">
                   {newJobPath || "未選択"}
@@ -128,10 +128,14 @@ export function JobSelector() {
               </div>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">
+              <label
+                htmlFor="new-job-name"
+                className="text-xs text-muted-foreground mb-1 block"
+              >
                 Job名
               </label>
               <Input
+                id="new-job-name"
                 value={newJobName}
                 onChange={(e) => setNewJobName(e.target.value)}
                 onKeyDown={(e) => {

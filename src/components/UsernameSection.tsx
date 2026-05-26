@@ -27,7 +27,6 @@ export function UsernameSection() {
               if (e.key === "Enter") handleSave();
               if (e.key === "Escape") setEditing(false);
             }}
-            // biome-ignore lint/a11y/noAutofocus: inline edit field requires immediate focus
             autoFocus
           />
           <Button size="xs" onClick={handleSave} disabled={!input.trim()}>

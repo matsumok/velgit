@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useAppStore } from "../store/useAppStore";
 import { Button } from "./ui/button";
-import { Input } from "./ui/input";
 import {
   Dialog,
   DialogContent,
@@ -9,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
+import { Input } from "./ui/input";
 
 export function UsernameGate({ children }: { children: React.ReactNode }) {
   const { username, setUsername } = useAppStore();

@@ -47,7 +47,7 @@ impl From<CommitEntry> for CommitEntryDto {
             author: e.author,
             timestamp: e.timestamp,
             change_type: None,
-            blob_oid: None,
+            blob_oid: if e.blob_oid.is_empty() { None } else { Some(e.blob_oid) },
         }
     }
 }

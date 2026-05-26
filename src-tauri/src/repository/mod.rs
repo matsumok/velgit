@@ -148,6 +148,7 @@ pub fn project_commits(repo_path: &Path) -> Result<Vec<CommitEntry>, git2::Error
             message: commit.message().unwrap_or("").trim().to_string(),
             author: commit.author().name().unwrap_or("").to_string(),
             timestamp: commit.time().seconds(),
+            blob_oid: String::new(),
         });
     }
     Ok(entries)

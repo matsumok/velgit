@@ -6,7 +6,6 @@ import { useGetPendingChanges } from "./api/pendingChanges";
 import { useInitProject } from "./api/project";
 import { useGetDrawingsAtCommit } from "./api/projectCommits";
 import { queryKeys } from "./api/queryKeys";
-import { Button } from "./components/ui/button";
 import { CommitPanel } from "./components/commit/CommitPanel";
 import { JobSelector } from "./components/JobSelector";
 import { AppHeader } from "./components/layout/AppHeader";
@@ -16,6 +15,7 @@ import { ThreePaneLayout } from "./components/layout/ThreePaneLayout";
 import { ProjectTimeline } from "./components/ProjectTimeline";
 import { ReleasePanel } from "./components/ReleasePanel";
 import { UsernameGate } from "./components/UsernameGate";
+import { Button } from "./components/ui/button";
 import { resolveDrawingStatuses } from "./lib/drawingStatus";
 import { useAppStore } from "./store/useAppStore";
 
