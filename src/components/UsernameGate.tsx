@@ -28,7 +28,7 @@ export function UsernameGate({ children }: { children: React.ReactNode }) {
           <DialogDescription>コミットに記録されます</DialogDescription>
         </DialogHeader>
         <Input
-          placeholder="例: 山田太郎"
+          placeholder="Username"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {

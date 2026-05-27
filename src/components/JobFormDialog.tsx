@@ -88,7 +88,7 @@ export function JobFormDialog({ open, onOpenChange, editJob }: Props) {
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleSubmit();
               }}
-              placeholder="例: 〇〇ビル新築工事"
+              placeholder="〇〇新築工事"
             />
           </div>
         </div>
