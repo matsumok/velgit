@@ -22,6 +22,7 @@ interface AppState {
   jobs: Job[];
   addJob: (job: Job) => void;
   removeJob: (id: string) => void;
+  updateJob: (id: string, patch: Partial<Pick<Job, "name" | "path">>) => void;
   selectedJobId: string | null;
   selectJob: (id: string | null) => void;
   theme: "light" | "dark";
@@ -59,6 +60,14 @@ export const useAppStore = create<AppState>()(
         set((s) => ({
           jobs: s.jobs.filter((j) => j.id !== id),
           selectedJobId: s.selectedJobId === id ? null : s.selectedJobId,
+        })),
+      updateJob: (id, patch) =>
+        set((s) => ({
+          jobs: s.jobs.map((j) => (j.id === id ? { ...j, ...patch } : j)),
+          selectedProject:
+            s.selectedJobId === id && patch.path
+              ? patch.path
+              : s.selectedProject,
         })),
       selectedJobId: null,
       selectJob: (id) => {

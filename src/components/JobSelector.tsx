@@ -1,5 +1,9 @@
-import { CaretDownIcon, FolderOpenIcon, PlusIcon } from "@phosphor-icons/react";
-import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import {
+  CaretDownIcon,
+  PencilSimpleIcon,
+  PlusIcon,
+  TrashIcon,
+} from "@phosphor-icons/react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -8,40 +12,36 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { type Job, useAppStore } from "@/store/useAppStore";
+import { JobFormDialog } from "./JobFormDialog";
 
 export function JobSelector() {
-  const { jobs, selectedJobId, selectJob, addJob } = useAppStore();
+  const { jobs, selectedJobId, selectJob, removeJob } = useAppStore();
   const [popoverOpen, setPopoverOpen] = useState(false);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [newJobName, setNewJobName] = useState("");
-  const [newJobPath, setNewJobPath] = useState("");
+  const [formDialog, setFormDialog] = useState<{
+    open: boolean;
+    editJob?: Job;
+  }>({
+    open: false,
+  });
+  const [deleteTarget, setDeleteTarget] = useState<Job | null>(null);
 
   const selectedJob = jobs.find((j) => j.id === selectedJobId);
 
-  async function handlePickFolder() {
-    const path = await openDialog({ directory: true, multiple: false });
-    if (!path || typeof path !== "string") return;
-    const folderName = path.split(/[\\/]/).pop() ?? path;
-    setNewJobPath(path);
-    setNewJobName(folderName);
+  function openAdd() {
+    setPopoverOpen(false);
+    setFormDialog({ open: true });
   }
 
-  function handleAddJob() {
-    if (!newJobName.trim() || !newJobPath) return;
-    const job: Job = {
-      id: crypto.randomUUID(),
-      name: newJobName.trim(),
-      path: newJobPath,
-      createdAt: Date.now(),
-    };
-    addJob(job);
-    selectJob(job.id);
-    setDialogOpen(false);
+  function openEdit(job: Job) {
     setPopoverOpen(false);
-    setNewJobName("");
-    setNewJobPath("");
+    setFormDialog({ open: true, editJob: job });
+  }
+
+  function handleDelete() {
+    if (!deleteTarget) return;
+    removeJob(deleteTarget.id);
+    setDeleteTarget(null);
   }
 
   return (
@@ -75,11 +75,11 @@ export function JobSelector() {
                   {[...jobs]
                     .sort((a, b) => b.createdAt - a.createdAt)
                     .map((job) => (
-                      <li key={job.id}>
+                      <li key={job.id} className="group flex items-center">
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="w-full justify-start truncate"
+                          className="flex-1 justify-start truncate min-w-0"
                           onClick={() => {
                             selectJob(job.id);
                             setPopoverOpen(false);
@@ -87,6 +87,31 @@ export function JobSelector() {
                         >
                           {job.name}
                         </Button>
+                        <div className="flex gap-0.5 pr-1 opacity-0 group-hover:opacity-100 shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            aria-label="編集"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEdit(job);
+                            }}
+                          >
+                            <PencilSimpleIcon className="size-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            aria-label="削除"
+                            className="hover:bg-destructive/10 hover:text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteTarget(job);
+                            }}
+                          >
+                            <TrashIcon className="size-3" />
+                          </Button>
+                        </div>
                       </li>
                     ))}
                 </ul>
@@ -95,10 +120,7 @@ export function JobSelector() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => {
-                    setPopoverOpen(false);
-                    setDialogOpen(true);
-                  }}
+                  onClick={openAdd}
                   className="w-full justify-start text-muted-foreground"
                 >
                   <PlusIcon className="size-3" />
@@ -110,48 +132,33 @@ export function JobSelector() {
         )}
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <JobFormDialog
+        open={formDialog.open}
+        onOpenChange={(open) => setFormDialog((prev) => ({ ...prev, open }))}
+        editJob={formDialog.editJob}
+      />
+
+      <Dialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>新規Job登録</DialogTitle>
+            <DialogTitle>Jobを削除しますか？</DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col gap-3">
-            <div>
-              <p className="text-xs text-muted-foreground mb-1">フォルダ</p>
-              <div className="flex gap-2">
-                <span className="flex-1 text-xs px-2 py-1.5 rounded border border-input bg-muted truncate text-muted-foreground min-w-0">
-                  {newJobPath || "未選択"}
-                </span>
-                <Button variant="outline" size="sm" onClick={handlePickFolder}>
-                  <FolderOpenIcon className="size-3 mr-1" />
-                  選択
-                </Button>
-              </div>
-            </div>
-            <div>
-              <label
-                htmlFor="new-job-name"
-                className="text-xs text-muted-foreground mb-1 block"
-              >
-                Job名
-              </label>
-              <Input
-                id="new-job-name"
-                value={newJobName}
-                onChange={(e) => setNewJobName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleAddJob();
-                }}
-                placeholder="例: 〇〇ビル新築工事"
-              />
-            </div>
+          <p className="text-sm text-muted-foreground">
+            「{deleteTarget?.name}」を削除します。この操作は取り消せません。
+          </p>
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+              キャンセル
+            </Button>
+            <Button variant="destructive" onClick={handleDelete}>
+              削除
+            </Button>
           </div>
-          <Button
-            disabled={!newJobName.trim() || !newJobPath}
-            onClick={handleAddJob}
-          >
-            登録
-          </Button>
         </DialogContent>
       </Dialog>
     </>
