@@ -7,7 +7,6 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { DrawingWithStatus } from "../../lib/drawingStatus";
 import { cn } from "../../lib/utils";
-import { Badge } from "../ui/badge";
 import { Checkbox } from "../ui/checkbox";
 import {
   Table,
@@ -25,11 +24,15 @@ export interface DrawingTableProps {
   onSelectionChange: (filenames: string[]) => void;
 }
 
-const STATUS_COLOR: Record<string, string> = {
-  new: "text-green-600",
-  modified: "text-yellow-600",
-  unchanged: "",
-};
+function getStatusColor(
+  status: DrawingWithStatus["status"],
+  isMinor: boolean,
+): string {
+  if (status === "new") return "text-green-600";
+  if (status === "modified")
+    return isMinor ? "text-yellow-400" : "text-yellow-600";
+  return "";
+}
 
 function canSelect(status: DrawingWithStatus["status"], mode: string): boolean {
   return mode !== "browse" && (mode === "release" || status !== "unchanged");
@@ -93,21 +96,12 @@ export function DrawingTable({
           <span
             className={cn(
               "block truncate text-xs",
-              STATUS_COLOR[row.original.status],
+              getStatusColor(row.original.status, row.original.isMinor),
             )}
           >
             {row.original.filename}
           </span>
         ),
-      },
-      {
-        id: "badge",
-        cell: ({ row }) =>
-          row.original.isMinor ? (
-            <Badge variant="secondary" className="text-xs">
-              ~
-            </Badge>
-          ) : null,
       },
     ],
     [],
