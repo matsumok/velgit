@@ -43,16 +43,17 @@ jobs:
           find tmp_pdfium -name "pdfium.dll"
           cp "$(find tmp_pdfium -name 'pdfium.dll' | head -1)" src-tauri/pdfium.dll
 
-      - name: Build and release
-        uses: tauri-apps/tauri-action@v0
+      - name: Build Tauri app
+        run: pnpm tauri build
+
+      - name: Create GitHub Release
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tagName: ${{ github.ref_name }}
-          releaseName: velgit ${{ github.ref_name }}
-          releaseBody: |
-            ## インストール方法
-            - **インストーラー版**: `velgit_x.x.x_x64-setup.exe` をダウンロードして実行
-            - **MSI版**: `velgit_x.x.x_x64_en-US.msi` をダウンロードして実行
-          releaseDraft: true
-          prerelease: false
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --title "velgit ${{ github.ref_name }}" \
+            --draft \
+            --notes $'## インストール方法\n- **インストーラー版**: `velgit_*_x64-setup.exe` をダウンロードして実行\n- **MSI版**: `velgit_*_x64_en-US.msi` をダウンロードして実行' \
+            src-tauri/target/release/bundle/nsis/velgit_*_x64-setup.exe \
+            src-tauri/target/release/bundle/msi/velgit_*_x64_en-US.msi
