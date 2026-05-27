@@ -22,6 +22,8 @@ import { useAppMode } from "./hooks/useAppMode";
 import { resolveDrawingStatuses } from "./lib/drawingStatus";
 import { useAppStore } from "./store/useAppStore";
 
+const EMPTY_FILENAMES: string[] = [];
+
 function LeftPaneSpinner() {
   const backgroundTask = useAppStore((s) => s.backgroundTask);
   if (!backgroundTask) return null;
@@ -55,7 +57,8 @@ function CenterPane() {
 
   const appMode = useAppMode();
   const releaseId = appMode.mode === "release" ? appMode.releaseId : null;
-  const { data: releaseDrawings = [] } = useGetReleaseDrawings(releaseId);
+  const { data: releaseDrawings = EMPTY_FILENAMES } =
+    useGetReleaseDrawings(releaseId);
 
   const [selectedFilenames, setSelectedFilenames] = useState<string[]>([]);
 
