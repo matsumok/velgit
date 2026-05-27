@@ -24,7 +24,8 @@ export function resolveDrawingStatuses(
       return {
         filename: d.filename,
         status: (change?.status as DrawingStatus | undefined) ?? "unchanged",
-        isMinor: change?.changeType === "minor",
+        isMinor:
+          change?.changeType === "minor" || change?.changeType === "none",
       };
     });
 

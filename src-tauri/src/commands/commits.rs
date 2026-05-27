@@ -157,6 +157,7 @@ pub async fn commit_changes(
                     _ => "meaningful".to_string(),
                 };
 
+                eprintln!("[classify] {filename} => {change_type}");
                 let db = DbPool(pool.clone());
                 if let Err(e) = db
                     .update_commit_file_change_type(&oid_bg, &filename, &change_type)

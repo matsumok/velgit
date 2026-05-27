@@ -208,15 +208,21 @@ function useCommitCreatedListener() {
 }
 
 function useCommitClassifiedListener() {
+  const queryClient = useQueryClient();
+  const selectedProject = useAppStore((s) => s.selectedProject);
   const setBackgroundTask = useAppStore((s) => s.setBackgroundTask);
   useEffect(() => {
     const unlisten = listen("commit-classified", () => {
       setBackgroundTask(null);
+      if (!selectedProject) return;
+      queryClient.invalidateQueries({
+        queryKey: ["changes_at_commit", selectedProject],
+      });
     });
     return () => {
       unlisten.then((fn) => fn());
     };
-  }, [setBackgroundTask]);
+  }, [queryClient, selectedProject, setBackgroundTask]);
 }
 
 function useClassifyProgressListener() {
