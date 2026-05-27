@@ -39,7 +39,8 @@ jobs:
           curl -L "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium%2F7543/pdfium-win-x64.tgz" -o pdfium.tgz
           mkdir -p tmp_pdfium
           tar -xzf pdfium.tgz -C tmp_pdfium
-          cp tmp_pdfium/lib/pdfium.dll src-tauri/pdfium.dll
+          find tmp_pdfium -name "pdfium.dll"
+          cp "$(find tmp_pdfium -name 'pdfium.dll' | head -1)" src-tauri/pdfium.dll
 
       - name: Build and release
         uses: tauri-apps/tauri-action@v0
