@@ -51,8 +51,8 @@ function CenterPane() {
   const { selectedProject, selectedCommitOid, setSelectedDrawing } =
     useAppStore();
   const { error, loading, openFolder } = useInitProject();
-  const { data: changes = [] } = useGetPendingChanges();
-  const { data: headDrawings = [] } = useGetDrawings();
+  const { data: changes } = useGetPendingChanges();
+  const { data: headDrawings } = useGetDrawings();
   const { data: pastDrawings } = useGetDrawingsAtCommit(selectedCommitOid);
 
   const appMode = useAppMode();
@@ -84,7 +84,7 @@ function CenterPane() {
         isMinor: false,
       }));
     }
-    return resolveDrawingStatuses(headDrawings, changes);
+    return resolveDrawingStatuses(headDrawings ?? [], changes ?? []);
   }, [appMode.mode, releaseDrawings, pastDrawings, headDrawings, changes]);
 
   if (!selectedProject) {
