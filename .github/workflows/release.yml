@@ -20,7 +20,7 @@ jobs:
       - name: Cache Rust
         uses: Swatinem/rust-cache@v2
         with:
-          workdir: ./src-tauri
+          workspaces: "src-tauri -> target"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
