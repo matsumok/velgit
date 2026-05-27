@@ -50,12 +50,12 @@ jobs:
         run: pnpm tauri build
 
       - name: Create portable zip
-        shell: bash
+        shell: pwsh
         run: |
-          mkdir velgit-portable
-          cp src-tauri/target/release/velgit.exe velgit-portable/
-          cp src-tauri/pdfium.dll velgit-portable/
-          cd velgit-portable && zip -r "../velgit-portable-${{ github.ref_name }}.zip" .
+          New-Item -ItemType Directory -Path velgit-portable
+          Copy-Item src-tauri/target/release/velgit.exe velgit-portable/
+          Copy-Item src-tauri/pdfium.dll velgit-portable/
+          Compress-Archive -Path velgit-portable/* -DestinationPath "velgit-portable-${{ github.ref_name }}.zip"
 
       - name: Create GitHub Release
         shell: bash
