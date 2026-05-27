@@ -4,7 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useGetDrawings } from "./api/drawings";
 import { useGetPendingChanges } from "./api/pendingChanges";
 import { useInitProject } from "./api/project";
-import { useGetDrawingsAtCommit } from "./api/projectCommits";
+import {
+  useGetChangesAtCommit,
+  useGetDrawingsAtCommit,
+} from "./api/projectCommits";
 import { queryKeys } from "./api/queryKeys";
 import { useGetReleaseDrawings } from "./api/releases";
 import { CommitPanel } from "./components/commit/CommitPanel";
@@ -19,7 +22,10 @@ import { ReleasePanel } from "./components/ReleasePanel";
 import { UsernameGate } from "./components/UsernameGate";
 import { Button } from "./components/ui/button";
 import { useAppMode } from "./hooks/useAppMode";
-import { resolveDrawingStatuses } from "./lib/drawingStatus";
+import {
+  type DrawingStatus,
+  resolveDrawingStatuses,
+} from "./lib/drawingStatus";
 import { useAppStore } from "./store/useAppStore";
 
 const EMPTY_FILENAMES: string[] = [];
@@ -54,9 +60,11 @@ function CenterPane() {
   const { data: changes } = useGetPendingChanges();
   const { data: headDrawings } = useGetDrawings();
   const { data: pastDrawings } = useGetDrawingsAtCommit(selectedCommitOid);
-
   const appMode = useAppMode();
   const releaseId = appMode.mode === "release" ? appMode.releaseId : null;
+  const { data: changesAtCommit } = useGetChangesAtCommit(
+    appMode.mode === "browse" ? selectedCommitOid : null,
+  );
   const { data: releaseDrawings = EMPTY_FILENAMES } =
     useGetReleaseDrawings(releaseId);
 
@@ -78,14 +86,27 @@ function CenterPane() {
       }));
     }
     if (appMode.mode === "browse") {
-      return (pastDrawings ?? []).map((filename) => ({
-        filename,
-        status: "unchanged" as const,
-        isMinor: false,
-      }));
+      const changeMap = new Map(
+        (changesAtCommit ?? []).map((c) => [c.filename, c]),
+      );
+      return (pastDrawings ?? []).map((filename) => {
+        const change = changeMap.get(filename);
+        return {
+          filename,
+          status: (change?.status as DrawingStatus | undefined) ?? "unchanged",
+          isMinor: false,
+        };
+      });
     }
     return resolveDrawingStatuses(headDrawings ?? [], changes ?? []);
-  }, [appMode.mode, releaseDrawings, pastDrawings, headDrawings, changes]);
+  }, [
+    appMode.mode,
+    releaseDrawings,
+    pastDrawings,
+    changesAtCommit,
+    headDrawings,
+    changes,
+  ]);
 
   if (!selectedProject) {
     return (

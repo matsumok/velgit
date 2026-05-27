@@ -42,6 +42,7 @@ pub fn run() {
             commands::drawings::get_drawings,
             commands::drawings::get_pending_changes,
             commands::drawings::get_drawings_at_commit,
+            commands::drawings::get_changes_at_commit,
             commands::commits::commit_changes,
             commands::commits::get_commit_history,
             commands::commits::get_project_commits,

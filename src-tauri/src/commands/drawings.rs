@@ -20,6 +20,32 @@ pub fn get_drawings(state: State<'_, AppState>) -> Result<Vec<DrawingDto>, Strin
 }
 
 #[tauri::command]
+pub fn get_changes_at_commit(
+    oid: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<PendingChangeDto>, String> {
+    let Ok(path) = require_repo_path(&state) else {
+        return Ok(vec![]);
+    };
+    repository::changes_at_commit(&path, &oid)
+        .map_err(|e| e.to_string())
+        .map(|changes| {
+            changes
+                .into_iter()
+                .map(|c| PendingChangeDto {
+                    filename: c.filename,
+                    status: match c.status {
+                        repository::ChangeKind::New => "new".to_string(),
+                        repository::ChangeKind::Modified => "modified".to_string(),
+                        repository::ChangeKind::Deleted => "deleted".to_string(),
+                    },
+                    change_type: "none".to_string(),
+                })
+                .collect()
+        })
+}
+
+#[tauri::command]
 pub fn get_drawings_at_commit(
     oid: String,
     state: State<'_, AppState>,

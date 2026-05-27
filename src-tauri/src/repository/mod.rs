@@ -154,6 +154,58 @@ pub fn project_commits(repo_path: &Path) -> Result<Vec<CommitEntry>, git2::Error
     Ok(entries)
 }
 
+pub fn changes_at_commit(repo_path: &Path, oid_str: &str) -> Result<Vec<PendingChange>, git2::Error> {
+    ensure_safe_directory(repo_path);
+    let repo = git2::Repository::open(repo_path)?;
+    let oid = git2::Oid::from_str(oid_str).map_err(|e| git2::Error::from_str(&e.to_string()))?;
+    let commit = repo.find_commit(oid)?;
+    let tree = commit.tree()?;
+    let parent_tree = commit.parent(0).ok().and_then(|p| p.tree().ok());
+
+    let mut current: Vec<(String, git2::Oid)> = Vec::new();
+    tree.walk(git2::TreeWalkMode::PreOrder, |_, entry| {
+        if let Ok(name) = entry.name() {
+            if name.ends_with(".pdf") {
+                current.push((name.to_string(), entry.id()));
+            }
+        }
+        git2::TreeWalkResult::Ok
+    })?;
+
+    let mut parent_map: std::collections::HashMap<String, git2::Oid> = std::collections::HashMap::new();
+    if let Some(ref pt) = parent_tree {
+        pt.walk(git2::TreeWalkMode::PreOrder, |_, entry| {
+            if let Ok(name) = entry.name() {
+                if name.ends_with(".pdf") {
+                    parent_map.insert(name.to_string(), entry.id());
+                }
+            }
+            git2::TreeWalkResult::Ok
+        })?;
+    }
+
+    let mut changes: Vec<PendingChange> = Vec::new();
+    let mut current_names: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+    for (name, blob_id) in current {
+        current_names.insert(name.clone());
+        let status = match parent_map.get(&name) {
+            Some(pid) if *pid == blob_id => continue,
+            Some(_) => ChangeKind::Modified,
+            None => ChangeKind::New,
+        };
+        changes.push(PendingChange { filename: name, status });
+    }
+
+    for name in parent_map.keys() {
+        if !current_names.contains(name) {
+            changes.push(PendingChange { filename: name.clone(), status: ChangeKind::Deleted });
+        }
+    }
+
+    Ok(changes)
+}
+
 pub fn drawings_at_commit(repo_path: &Path, oid_str: &str) -> Result<Vec<String>, git2::Error> {
     ensure_safe_directory(repo_path);
     let repo = git2::Repository::open(repo_path)?;

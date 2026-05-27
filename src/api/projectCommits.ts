@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
 import { useAppStore } from "../store/useAppStore";
 import type { CommitEntry } from "./commitHistory";
+import type { PendingChange } from "./pendingChanges";
 import { queryKeys } from "./queryKeys";
 
 export function useGetProjectCommits() {
@@ -23,5 +24,22 @@ export function useGetDrawingsAtCommit(oid: string) {
       : [],
     queryFn: () => invoke<string[]>("get_drawings_at_commit", { oid }),
     enabled: isProjectReady && selectedProject !== null && oid !== "HEAD",
+  });
+}
+
+export function useGetChangesAtCommit(oid: string | null) {
+  const selectedProject = useAppStore((s) => s.selectedProject);
+  const isProjectReady = useAppStore((s) => s.isProjectReady);
+  return useQuery<PendingChange[]>({
+    queryKey:
+      selectedProject && oid
+        ? queryKeys.changesAtCommit(selectedProject, oid)
+        : [],
+    queryFn: () => invoke<PendingChange[]>("get_changes_at_commit", { oid }),
+    enabled:
+      isProjectReady &&
+      selectedProject !== null &&
+      oid !== null &&
+      oid !== "HEAD",
   });
 }
