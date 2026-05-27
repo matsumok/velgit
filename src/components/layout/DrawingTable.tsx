@@ -30,7 +30,7 @@ function getStatusColor(
 ): string {
   if (status === "new") return "text-green-600";
   if (status === "modified")
-    return isMinor ? "text-yellow-400" : "text-yellow-600";
+    return isMinor ? "text-sky-500" : "text-orange-500";
   return "";
 }
 
