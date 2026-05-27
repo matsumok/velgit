@@ -27,8 +27,8 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
+      - name: Enable corepack
+        run: corepack enable
 
       - name: Install frontend dependencies
         run: pnpm install
