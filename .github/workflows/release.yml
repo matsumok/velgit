@@ -26,13 +26,14 @@ jobs:
         with:
           workspaces: "src-tauri -> target"
 
+      - name: Enable corepack
+        run: corepack enable
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-
-      - name: Enable corepack
-        run: corepack enable
+          cache: "pnpm"
 
       - name: Install frontend dependencies
         run: pnpm install
@@ -43,11 +44,18 @@ jobs:
           curl -L "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium%2F7543/pdfium-win-x64.tgz" -o pdfium.tgz
           mkdir -p tmp_pdfium
           tar -xzf pdfium.tgz -C tmp_pdfium
-          find tmp_pdfium -name "pdfium.dll"
           cp "$(find tmp_pdfium -name 'pdfium.dll' | head -1)" src-tauri/pdfium.dll
 
       - name: Build Tauri app
         run: pnpm tauri build
+
+      - name: Create portable zip
+        shell: bash
+        run: |
+          mkdir velgit-portable
+          cp src-tauri/target/release/velgit.exe velgit-portable/
+          cp src-tauri/pdfium.dll velgit-portable/
+          cd velgit-portable && zip -r "../velgit-portable-${{ github.ref_name }}.zip" .
 
       - name: Create GitHub Release
         shell: bash
@@ -57,6 +65,7 @@ jobs:
           gh release create "${{ github.ref_name }}" \
             --title "velgit ${{ github.ref_name }}" \
             --draft \
-            --notes $'## インストール方法\n- **インストーラー版**: `velgit_*_x64-setup.exe` をダウンロードして実行\n- **MSI版**: `velgit_*_x64_en-US.msi` をダウンロードして実行' \
+            --notes $'## インストール方法\n- **インストーラー版**: `velgit_*_x64-setup.exe` をダウンロードして実行\n- **MSI版**: `velgit_*_x64_en-US.msi` をダウンロードして実行\n- **ポータブル版**: `velgit-portable-*.zip` を展開して `velgit.exe` を実行（要 WebView2）' \
             src-tauri/target/release/bundle/nsis/velgit_*_x64-setup.exe \
-            src-tauri/target/release/bundle/msi/velgit_*_x64_en-US.msi
+            src-tauri/target/release/bundle/msi/velgit_*_x64_en-US.msi \
+            "velgit-portable-${{ github.ref_name }}.zip"

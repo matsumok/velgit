@@ -23,16 +23,20 @@ jobs:
         with:
           workspaces: "src-tauri -> target"
 
+      - name: Enable corepack
+        run: corepack enable
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-
-      - name: Enable corepack
-        run: corepack enable
+          cache: "pnpm"
 
       - name: Install frontend dependencies
         run: pnpm install
+
+      - name: Biome check
+        run: pnpm exec biome ci .
 
       - name: TypeScript typecheck
         run: pnpm typecheck
@@ -40,3 +44,7 @@ jobs:
       - name: Rust cargo check
         working-directory: src-tauri
         run: cargo check
+
+      - name: Rust tests
+        working-directory: src-tauri
+        run: cargo test

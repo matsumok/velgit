@@ -1,27 +1,37 @@
 # velgit
 
-建築・設計事務所向けの図面バージョン管理ツール。A3サイズのPDFを対象とし、Windowsの共有ドライブ上でチームが図面の変更履歴を管理できる。
+PDF図面のバージョン管理ツール。  
+フォルダ上でチームの図面変更履歴を管理できる。
+
+## 基本的な使い方
+
+### 1. 物件を開く
+
+図面PDF保存フォルダをvelgitで開く。  
+初回は初期化を行い、以降の変更から管理を開始する。  
+初期化時にフォルダ内に `.git` フォルダが生成される（削除すると履歴情報が失われます。）。
+
+### 2. 図面をコミットする
+
+フォルダ内のPDFが更新されると自動的に検知し、変更候補としてリストアップされる。  
+コメントを入力してコミットすると、その時点の図面が履歴に記録される。
+
+### 3. 差分を確認する
+
+履歴から2つのコミットまたは図渡しを選択すると、図面の変更箇所を視覚的に確認できる。  
+変更箇所は赤（削除・後退）・青（追加・前進）のオーバーレイで表示される。
+
+### 4. 図面セットの作成
+
+提出・納品のタイミングで図面セットのスナップショットに名前を付けられる。  
+図面セットを選択してバインドPDF（複数図面を結合した1ファイル）を生成することもできる。
 
 ## 技術スタック
 
-- **フロントエンド**: React 19 + TypeScript + Tailwind CSS + shadcn/ui
-- **バックエンド**: Rust (Tauri v2)
-- **DB**: SQLite (sqlx)
-- **リポジトリ**: git2 (libgit2)
-
-## 開発環境セットアップ
-
-```bash
-pnpm install
-pnpm tauri dev
-```
-
-## ビルド
-
-```bash
-pnpm tauri build
-```
-
-## 推奨IDE
-
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+| 領域                   | 技術                                             |
+| ---------------------- | ------------------------------------------------ |
+| デスクトップアプリ基盤 | [Tauri v2](https://tauri.app/) (Rust)            |
+| フロントエンド         | React 19 + TypeScript + Tailwind CSS + shadcn/ui |
+| バージョン管理         | libgit2 (git2-rs)                                |
+| データベース           | SQLite (sqlx)                                    |
+| PDF処理                | PDFium                                           |
