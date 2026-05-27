@@ -1,4 +1,7 @@
+use std::sync::atomic::{AtomicBool, Ordering::Relaxed};
+
 use image::RgbaImage;
+use rayon::prelude::*;
 
 #[derive(Debug, PartialEq)]
 pub enum ChangeType {
@@ -22,61 +25,49 @@ pub struct ThresholdDiff {
 
 impl DiffAlgorithm for ThresholdDiff {
     fn diff(&self, old: &RgbaImage, new: &RgbaImage) -> DiffResult {
-        let mut any_changed = false;
-        let mut any_meaningful = false;
+        let t = std::time::Instant::now();
+        let threshold = self.threshold;
+        let width = new.width();
+        let height = new.height();
 
-        for (o, n) in old.pixels().zip(new.pixels()) {
-            let delta = channel_delta(o, n);
-            if delta > 0 {
-                any_changed = true;
-            }
-            if delta > self.threshold {
-                any_meaningful = true;
-                break;
-            }
+        let any_changed = AtomicBool::new(false);
+        let any_meaningful = AtomicBool::new(false);
+
+        // 1 パスで change 検知とオーバーレイ構築を同時実行
+        let out_raw: Vec<u8> = old.as_raw()
+            .par_chunks(4)
+            .zip(new.as_raw().par_chunks(4))
+            .flat_map_iter(|(old_px, new_px)| {
+                let delta = old_px[0].abs_diff(new_px[0])
+                    .max(old_px[1].abs_diff(new_px[1]))
+                    .max(old_px[2].abs_diff(new_px[2]));
+                if delta > threshold {
+                    any_changed.store(true, Relaxed);
+                    any_meaningful.store(true, Relaxed);
+                    let old_lum = (old_px[0] as u32 * 299 + old_px[1] as u32 * 587 + old_px[2] as u32 * 114) / 1000;
+                    let new_lum = (new_px[0] as u32 * 299 + new_px[1] as u32 * 587 + new_px[2] as u32 * 114) / 1000;
+                    if old_lum > new_lum { [0u8, 0, 255, 255] } else { [255u8, 0, 0, 255] }
+                } else {
+                    if delta > 0 {
+                        any_changed.store(true, Relaxed);
+                    }
+                    [new_px[0], new_px[1], new_px[2], new_px[3]]
+                }
+            })
+            .collect();
+
+        eprintln!("[PERF]     single-pass diff+overlay (rayon): {:.3}s", t.elapsed().as_secs_f64());
+
+        if !any_changed.load(Relaxed) {
+            return DiffResult { change_type: ChangeType::None, overlay: None };
         }
 
-        if !any_changed {
-            return DiffResult { change_type: ChangeType::None, overlay: Option::None };
-        }
-
-        let change_type = if any_meaningful { ChangeType::Meaningful } else { ChangeType::Minor };
-        let overlay = build_overlay(old, new, self.threshold);
+        let change_type = if any_meaningful.load(Relaxed) { ChangeType::Meaningful } else { ChangeType::Minor };
+        let overlay = RgbaImage::from_raw(width, height, out_raw).unwrap();
         DiffResult { change_type, overlay: Some(overlay) }
     }
 }
 
-fn channel_delta(a: &image::Rgba<u8>, b: &image::Rgba<u8>) -> u8 {
-    let dr = a[0].abs_diff(b[0]);
-    let dg = a[1].abs_diff(b[1]);
-    let db = a[2].abs_diff(b[2]);
-    dr.max(dg).max(db)
-}
-
-fn build_overlay(old: &RgbaImage, new: &RgbaImage, threshold: u8) -> RgbaImage {
-    let mut out = new.clone();
-    for (x, y, new_px) in new.enumerate_pixels() {
-        let old_px = old.get_pixel(x, y);
-        if channel_delta(old_px, new_px) > threshold {
-            let old_lum = luminance(old_px);
-            let new_lum = luminance(new_px);
-            let color = if old_lum > new_lum {
-                image::Rgba([0u8, 0, 255, 255])    // blue: content added
-            } else {
-                image::Rgba([255u8, 0, 0, 255])    // red: content removed
-            };
-            out.put_pixel(x, y, color);
-        }
-    }
-    out
-}
-
-fn luminance(px: &image::Rgba<u8>) -> u8 {
-    let r = px[0] as u32;
-    let g = px[1] as u32;
-    let b = px[2] as u32;
-    ((r * 299 + g * 587 + b * 114) / 1000) as u8
-}
 
 pub fn diff(old: &RgbaImage, new: &RgbaImage) -> DiffResult {
     ThresholdDiff { threshold: 10 }.diff(old, new)
@@ -111,8 +102,8 @@ mod tests {
 
     #[test]
     fn black_to_white_returns_meaningful_with_red_pixels() {
-        let old = solid(4, 4, 0, 0, 0);       // 黒（コンテンツあり）
-        let new = solid(4, 4, 255, 255, 255); // 白（コンテンツ消去）
+        let old = solid(4, 4, 0, 0, 0);
+        let new = solid(4, 4, 255, 255, 255);
         let result = diff(&old, &new);
         assert_eq!(result.change_type, ChangeType::Meaningful);
         let overlay = result.overlay.expect("overlay should be present");
@@ -123,8 +114,8 @@ mod tests {
 
     #[test]
     fn white_to_black_returns_meaningful_with_blue_pixels() {
-        let old = solid(4, 4, 255, 255, 255); // 白（コンテンツなし）
-        let new = solid(4, 4, 0, 0, 0);       // 黒（コンテンツ追加）
+        let old = solid(4, 4, 255, 255, 255);
+        let new = solid(4, 4, 0, 0, 0);
         let result = diff(&old, &new);
         assert_eq!(result.change_type, ChangeType::Meaningful);
         let overlay = result.overlay.expect("overlay should be present");

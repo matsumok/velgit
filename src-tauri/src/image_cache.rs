@@ -1,6 +1,6 @@
 use sqlx::SqlitePool;
 
-/// blob OID をキーに PNG をキャッシュする。キャッシュミス時のみ PDFium でラスタライズする。
+/// blob OID をキーに PNG をキャッシュする。
 pub async fn get_or_rasterize(
     pool: &SqlitePool,
     pdf_bytes: &[u8],
@@ -17,8 +17,10 @@ pub async fn get_or_rasterize(
     .map_err(|e| e.to_string())?;
 
     if let Some((png,)) = cached {
+        eprintln!("[CACHE] HIT  blob_oid={} png={}KB", &blob_oid[..8], png.len() / 1024);
         return Ok(png);
     }
+    eprintln!("[CACHE] MISS blob_oid={} — rasterizing...", &blob_oid[..8]);
 
     let pdf_owned = pdf_bytes.to_vec();
     let png = tokio::task::spawn_blocking(move || {

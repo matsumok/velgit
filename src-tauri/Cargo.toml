@@ -30,7 +30,10 @@ tauri-plugin-dialog = "2"
 notify = "7"
 pdfium-render = { version = "0.8", features = ["image", "pdfium_7543"] }
 image = "0.25"
+flate2 = "1"
+crc32fast = "1"
 base64 = "0.22"
+rayon = "1"
 
 [dev-dependencies]
 tempfile = "3"

@@ -3,6 +3,7 @@ pub mod db;
 pub mod diff;
 pub mod image_cache;
 pub mod pdf;
+pub mod png_encode_fast;
 pub mod releases;
 pub mod repository;
 pub mod watcher;

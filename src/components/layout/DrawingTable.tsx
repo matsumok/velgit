@@ -70,9 +70,7 @@ export function DrawingTable({
           return (
             <Checkbox
               checked={table.getIsAllRowsSelected()}
-              indeterminate={
-                table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected()
-              }
+              indeterminate={table.getIsSomeRowsSelected()}
               onCheckedChange={(v) => table.toggleAllRowsSelected(!!v)}
               aria-label="すべて選択"
             />
