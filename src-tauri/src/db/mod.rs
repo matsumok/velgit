@@ -93,6 +93,19 @@ impl DbPool {
         Ok(())
     }
 
+    pub async fn get_change_types_for_commit(
+        &self,
+        commit_oid: &str,
+    ) -> Result<std::collections::HashMap<String, String>, sqlx::Error> {
+        let rows: Vec<(String, String)> = sqlx::query_as(
+            "SELECT filename, change_type FROM commit_files WHERE commit_oid = ?",
+        )
+        .bind(commit_oid)
+        .fetch_all(&self.0)
+        .await?;
+        Ok(rows.into_iter().collect())
+    }
+
     pub async fn get_change_types_for_file(
         &self,
         commit_oids: &[String],

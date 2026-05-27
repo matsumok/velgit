@@ -22,10 +22,7 @@ import { ReleasePanel } from "./components/ReleasePanel";
 import { UsernameGate } from "./components/UsernameGate";
 import { Button } from "./components/ui/button";
 import { useAppMode } from "./hooks/useAppMode";
-import {
-  type DrawingStatus,
-  resolveDrawingStatuses,
-} from "./lib/drawingStatus";
+import { resolveDrawingStatuses } from "./lib/drawingStatus";
 import { useAppStore } from "./store/useAppStore";
 
 const EMPTY_FILENAMES: string[] = [];
@@ -86,17 +83,10 @@ function CenterPane() {
       }));
     }
     if (appMode.mode === "browse") {
-      const changeMap = new Map(
-        (changesAtCommit ?? []).map((c) => [c.filename, c]),
+      return resolveDrawingStatuses(
+        (pastDrawings ?? []).map((filename) => ({ filename, added_at: 0 })),
+        changesAtCommit ?? [],
       );
-      return (pastDrawings ?? []).map((filename) => {
-        const change = changeMap.get(filename);
-        return {
-          filename,
-          status: (change?.status as DrawingStatus | undefined) ?? "unchanged",
-          isMinor: false,
-        };
-      });
     }
     return resolveDrawingStatuses(headDrawings ?? [], changes ?? []);
   }, [
