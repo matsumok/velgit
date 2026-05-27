@@ -70,7 +70,17 @@ export function DrawingTable({
           return (
             <Checkbox
               checked={table.getIsAllRowsSelected()}
-              onCheckedChange={(v) => table.toggleAllRowsSelected(!!v)}
+              indeterminate={
+                table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected()
+              }
+              onClick={(e) => {
+                // Bypass Base UI's hidden-input PointerEvent dispatch mechanism,
+                // which does not fire onChange reliably in Tauri's WebView.
+                (
+                  e as unknown as { preventBaseUIHandler?: () => void }
+                ).preventBaseUIHandler?.();
+                table.toggleAllRowsSelected(!table.getIsAllRowsSelected());
+              }}
               aria-label="すべて選択"
             />
           );
@@ -79,9 +89,14 @@ export function DrawingTable({
           row.getCanSelect() ? (
             <Checkbox
               checked={row.getIsSelected()}
-              onCheckedChange={(v) => row.toggleSelected(!!v)}
+              onClick={(e) => {
+                e.stopPropagation();
+                (
+                  e as unknown as { preventBaseUIHandler?: () => void }
+                ).preventBaseUIHandler?.();
+                row.toggleSelected(!row.getIsSelected());
+              }}
               aria-label={row.original.filename}
-              onClick={(e) => e.stopPropagation()}
             />
           ) : null,
       },

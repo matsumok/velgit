@@ -82,7 +82,7 @@ function CenterPane() {
       }));
     }
     return resolveDrawingStatuses(headDrawings, changes);
-  }, [appMode, releaseDrawings, pastDrawings, headDrawings, changes]);
+  }, [appMode.mode, releaseDrawings, pastDrawings, headDrawings, changes]);
 
   if (!selectedProject) {
     return (
