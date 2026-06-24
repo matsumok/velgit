@@ -18,7 +18,7 @@ pub use commits::{commit_changes, get_commit_history, get_project_commits};
 pub use drawings::{get_changes_at_commit, get_drawings, get_drawings_at_commit, get_pending_changes};
 pub use images::{generate_diff, get_pdf_image, get_working_copy_image};
 pub use project::{init_working_folder, is_initialized};
-pub use releases::{create_release, generate_bind_pdf, get_release_drawings, list_releases};
+pub use releases::{create_release, generate_bind_pdf, generate_commit_bind_pdf, get_release_drawings, list_releases};
 
 // ─── Shared DTOs ────────────────────────────────────────────────────────────
 

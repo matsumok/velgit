@@ -32,6 +32,22 @@ export function useGetReleaseDrawings(releaseId: number | null) {
   });
 }
 
+export function useGenerateCommitBindPdf() {
+  return useMutation({
+    mutationFn: ({
+      commitOid,
+      savePath,
+    }: {
+      commitOid: string;
+      savePath: string;
+    }) =>
+      invoke<void>("generate_commit_bind_pdf", {
+        commitOid,
+        savePath,
+      }),
+  });
+}
+
 export function useGenerateBindPdf() {
   return useMutation({
     mutationFn: ({

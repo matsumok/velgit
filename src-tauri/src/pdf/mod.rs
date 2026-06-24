@@ -6,6 +6,27 @@ fn load_pdfium() -> Result<Pdfium, PdfiumError> {
         .map(Pdfium::new)
 }
 
+pub fn bind_from_commit(
+    repo: &git2::Repository,
+    commit_oid: &str,
+    filenames: &[String],
+) -> Result<Vec<u8>, String> {
+    let oid = git2::Oid::from_str(commit_oid).map_err(|e| e.to_string())?;
+    let commit = repo.find_commit(oid).map_err(|e| e.to_string())?;
+    let tree = commit.tree().map_err(|e| e.to_string())?;
+
+    let mut pdf_bytes_list: Vec<Vec<u8>> = Vec::new();
+    for filename in filenames {
+        let entry = tree
+            .get_name(filename)
+            .ok_or_else(|| format!("{filename} はこのコミットに存在しません"))?;
+        let blob = repo.find_blob(entry.id()).map_err(|e| e.to_string())?;
+        pdf_bytes_list.push(blob.content().to_vec());
+    }
+
+    bind(&pdf_bytes_list).map_err(|e| e.to_string())
+}
+
 pub fn bind(pdf_bytes_list: &[Vec<u8>]) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     let pdfium = load_pdfium()?;
     let mut dest = pdfium.create_new_pdf()?;

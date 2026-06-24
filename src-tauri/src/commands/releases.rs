@@ -1,8 +1,8 @@
 use tauri::State;
 
-use crate::{pdf, releases, AppState};
+use crate::{pdf, releases, repository, AppState};
 
-use super::{extract_pdf_blob, require_pool, require_repo_path, ReleaseEntryDto};
+use super::{require_pool, require_repo_path, ReleaseEntryDto};
 
 #[tauri::command]
 pub async fn create_release(
@@ -96,13 +96,25 @@ pub async fn generate_bind_pdf(
     filenames.sort();
 
     let repo = git2::Repository::open(&path).map_err(|e| e.to_string())?;
-    let mut pdf_bytes_list: Vec<Vec<u8>> = Vec::new();
-    for filename in &filenames {
-        let bytes = extract_pdf_blob(&repo, &release.commit_oid, filename)?;
-        pdf_bytes_list.push(bytes);
-    }
+    let bound = pdf::bind_from_commit(&repo, &release.commit_oid, &filenames)?;
+    std::fs::write(&save_path, &bound).map_err(|e| e.to_string())?;
+    Ok(())
+}
 
-    let bound = pdf::bind(&pdf_bytes_list).map_err(|e| e.to_string())?;
+#[tauri::command]
+pub async fn generate_commit_bind_pdf(
+    commit_oid: String,
+    save_path: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let path = require_repo_path(&state)?;
+
+    let mut filenames = repository::drawings_at_commit(&path, &commit_oid)
+        .map_err(|e| e.to_string())?;
+    filenames.sort();
+
+    let repo = git2::Repository::open(&path).map_err(|e| e.to_string())?;
+    let bound = pdf::bind_from_commit(&repo, &commit_oid, &filenames)?;
     std::fs::write(&save_path, &bound).map_err(|e| e.to_string())?;
     Ok(())
 }

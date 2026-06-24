@@ -10,6 +10,7 @@ import {
 } from "./api/projectCommits";
 import { queryKeys } from "./api/queryKeys";
 import { useGetReleaseDrawings } from "./api/releases";
+import { CommitDetailPanel } from "./components/CommitDetailPanel";
 import { CommitPanel } from "./components/commit/CommitPanel";
 import { JobSelector } from "./components/JobSelector";
 import { AppHeader } from "./components/layout/AppHeader";
@@ -147,6 +148,9 @@ function CenterPane() {
       )}
       {appMode.mode === "release" && (
         <ReleaseDetailPanel releaseId={appMode.releaseId} />
+      )}
+      {appMode.mode === "browse" && (
+        <CommitDetailPanel commitOid={appMode.commitOid} />
       )}
     </div>
   );
