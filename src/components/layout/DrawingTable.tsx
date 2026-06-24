@@ -145,11 +145,18 @@ export function DrawingTable({
   }, [rowSelection, rows, mode]);
 
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: クリック外側で選択解除するコンテナ
     <div
       className="flex-1 overflow-y-auto"
       onClick={() => {
         setActiveRow(null);
         onPreviewChangeRef.current(null);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          setActiveRow(null);
+          onPreviewChangeRef.current(null);
+        }
       }}
     >
       <p className="text-sm px-4 pt-3 pb-1">図面一覧</p>

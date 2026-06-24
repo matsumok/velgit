@@ -1,4 +1,8 @@
-import { ArchiveIcon, DownloadSimpleIcon, GitCommitIcon } from "@phosphor-icons/react";
+import {
+  ArchiveIcon,
+  DownloadSimpleIcon,
+  GitCommitIcon,
+} from "@phosphor-icons/react";
 import { save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { useGetProjectCommits } from "../api/projectCommits";
 import {
@@ -39,8 +43,10 @@ export function SnapshotDetailPanel(props: SnapshotDetailPanelProps) {
 
   const { mutateAsync: generateBindPdf, isPending: bindPdfPending } =
     useGenerateBindPdf();
-  const { mutateAsync: generateCommitBindPdf, isPending: commitBindPdfPending } =
-    useGenerateCommitBindPdf();
+  const {
+    mutateAsync: generateCommitBindPdf,
+    isPending: commitBindPdfPending,
+  } = useGenerateCommitBindPdf();
   const { mutateAsync: generateReleaseZip, isPending: releaseZipPending } =
     useGenerateReleaseZip();
   const { mutateAsync: generateCommitZip, isPending: commitZipPending } =
@@ -55,7 +61,11 @@ export function SnapshotDetailPanel(props: SnapshotDetailPanelProps) {
 
     async function handlePdf() {
       if (!release) return;
-      const defaultName = formatFileName(release.createdAt, release.name, "pdf");
+      const defaultName = formatFileName(
+        release.createdAt,
+        release.name,
+        "pdf",
+      );
       const savePath = await saveDialog({
         defaultPath: defaultName,
         filters: [{ name: "PDF", extensions: ["pdf"] }],
@@ -66,7 +76,11 @@ export function SnapshotDetailPanel(props: SnapshotDetailPanelProps) {
 
     async function handleZip() {
       if (!release) return;
-      const defaultName = formatFileName(release.createdAt, release.name, "zip");
+      const defaultName = formatFileName(
+        release.createdAt,
+        release.name,
+        "zip",
+      );
       const savePath = await saveDialog({
         defaultPath: defaultName,
         filters: [{ name: "ZIP", extensions: ["zip"] }],
@@ -138,7 +152,11 @@ export function SnapshotDetailPanel(props: SnapshotDetailPanelProps) {
       filters: [{ name: "PDF", extensions: ["pdf"] }],
     });
     if (!savePath) return;
-    await generateCommitBindPdf({ commitOid, filenames: selectedFilenames, savePath });
+    await generateCommitBindPdf({
+      commitOid,
+      filenames: selectedFilenames,
+      savePath,
+    });
   }
 
   async function handleZip() {
@@ -149,7 +167,11 @@ export function SnapshotDetailPanel(props: SnapshotDetailPanelProps) {
       filters: [{ name: "ZIP", extensions: ["zip"] }],
     });
     if (!savePath) return;
-    await generateCommitZip({ commitOid, filenames: selectedFilenames, savePath });
+    await generateCommitZip({
+      commitOid,
+      filenames: selectedFilenames,
+      savePath,
+    });
   }
 
   return (

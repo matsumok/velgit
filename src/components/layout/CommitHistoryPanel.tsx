@@ -69,6 +69,7 @@ export function CommitHistoryPanel() {
     null,
   );
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: selectedDrawing変更時のリセットが目的
   useEffect(() => {
     setSelectedHistoryOid(null);
   }, [selectedDrawing]);
