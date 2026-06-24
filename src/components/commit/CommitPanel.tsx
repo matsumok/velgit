@@ -81,30 +81,31 @@ export function CommitPanel({
                 key={filename}
                 className="border-0 hover:bg-transparent"
               >
-                <TableCell className="py-1 w-7 pr-0 pl-3">
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={`${filename} の引き継ぎ元を設定`}
-                    title={
-                      predecessor
-                        ? `引き継ぎ元: ${predecessor}`
-                        : "引き継ぎ元を設定"
-                    }
-                    onClick={() => setDialogOpenFor(filename)}
-                    className={cn("h-5 w-5", predecessor && "text-primary")}
-                  >
-                    <GitPullRequestIcon size={12} />
-                  </Button>
-                </TableCell>
-                <TableCell className="py-1 text-xs pr-3">
-                  <div className="flex items-center gap-2 min-w-0">
+                <TableCell className="py-1 text-xs pl-4 pr-2">
+                  <div className="flex items-center gap-1.5 min-w-0">
                     <span className="truncate flex-1">{filename}</span>
                     {predecessor && (
                       <span className="text-muted-foreground shrink-0 truncate max-w-28">
                         ← {predecessor}
                       </span>
                     )}
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`${filename} の引き継ぎ元を設定`}
+                      title={
+                        predecessor
+                          ? `引き継ぎ元: ${predecessor}`
+                          : "引き継ぎ元を設定"
+                      }
+                      onClick={() => setDialogOpenFor(filename)}
+                      className={cn(
+                        "h-5 w-5 shrink-0",
+                        predecessor && "text-primary",
+                      )}
+                    >
+                      <GitPullRequestIcon size={12} />
+                    </Button>
                   </div>
                 </TableCell>
               </TableRow>
@@ -146,19 +147,18 @@ export function CommitPanel({
           <DialogHeader>
             <DialogTitle>引き継ぎ元を選択</DialogTitle>
           </DialogHeader>
-          <Table>
-            <TableBody>
-              {candidates.map((f) => (
-                <TableRow
-                  key={f}
-                  className="cursor-pointer hover:bg-accent hover:text-accent-foreground"
-                  onClick={() => handleSelectPredecessor(f)}
-                >
-                  <TableCell className="py-1.5 text-xs">{f}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <div className="flex flex-col">
+            {candidates.map((f) => (
+              <button
+                key={f}
+                type="button"
+                className="text-left text-xs py-2 px-3 hover:bg-accent hover:text-accent-foreground active:bg-accent/80 transition-colors rounded-sm"
+                onClick={() => handleSelectPredecessor(f)}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
