@@ -1,9 +1,12 @@
+import { GitPullRequestIcon } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { useGetHeadFiles } from "../../api/headFiles";
 import { useCommitChanges } from "../../api/pendingChanges";
+import { cn } from "../../lib/utils";
 import { useAppStore } from "../../store/useAppStore";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
+import { Table, TableBody, TableCell, TableRow } from "../ui/table";
 import { Textarea } from "../ui/textarea";
 
 export function CommitPanel({
@@ -63,43 +66,68 @@ export function CommitPanel({
   );
 
   return (
-    <div className="p-4 border-t flex flex-col gap-3">
-      {error && <p className="text-xs text-destructive">{String(error)}</p>}
+    <div className="border-t flex flex-col">
+      {error && (
+        <p className="text-xs text-destructive px-4 pt-2">{String(error)}</p>
+      )}
 
-      {selectedFilenames.map((filename) => {
-        const predecessor = predecessors.get(filename);
-        return (
-          <div key={filename} className="flex items-center gap-2 text-xs">
-            <span className="truncate flex-1">{filename}</span>
-            <Button
-              variant="ghost"
-              size="sm"
-              aria-label={`${filename} の引き継ぎ元を設定`}
-              onClick={() => setDialogOpenFor(filename)}
-            >
-              {predecessor ?? "引き継ぎ元設定"}
-            </Button>
-          </div>
-        );
-      })}
+      {/* ファイル一覧 — テーブルと同程度の行密度 */}
+      <Table>
+        <TableBody>
+          {selectedFilenames.map((filename) => {
+            const predecessor = predecessors.get(filename);
+            return (
+              <TableRow
+                key={filename}
+                className="border-0 hover:bg-transparent"
+              >
+                <TableCell className="py-1.5 w-7 pr-0">
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={`${filename} の引き継ぎ元を設定`}
+                    title={
+                      predecessor
+                        ? `引き継ぎ元: ${predecessor}`
+                        : "引き継ぎ元を設定"
+                    }
+                    onClick={() => setDialogOpenFor(filename)}
+                    className={cn(predecessor && "text-primary")}
+                  >
+                    <GitPullRequestIcon size={14} />
+                  </Button>
+                </TableCell>
+                <TableCell className="py-1.5 text-xs truncate max-w-0">
+                  {filename}
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
 
-      <Textarea
-        rows={3}
-        placeholder="変更内容を入力..."
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
-      />
-      <Button
-        onClick={handleCommit}
-        disabled={
-          !message.trim() ||
-          isPending ||
-          !username ||
-          selectedFilenames.length === 0
-        }
-      >
-        {isPending ? "コミット中..." : `コミット (${selectedFilenames.length})`}
-      </Button>
+      {/* テキストエリア・コミットボタン */}
+      <div className="p-4 flex flex-col gap-3">
+        <Textarea
+          rows={3}
+          placeholder="変更内容を入力..."
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+        />
+        <Button
+          onClick={handleCommit}
+          disabled={
+            !message.trim() ||
+            isPending ||
+            !username ||
+            selectedFilenames.length === 0
+          }
+        >
+          {isPending
+            ? "コミット中..."
+            : `コミット (${selectedFilenames.length})`}
+        </Button>
+      </div>
 
       <Dialog
         open={dialogOpenFor !== null}
@@ -111,18 +139,19 @@ export function CommitPanel({
           <DialogHeader>
             <DialogTitle>引き継ぎ元を選択</DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col gap-1">
-            {candidates.map((f) => (
-              <Button
-                key={f}
-                variant="ghost"
-                size="sm"
-                onClick={() => handleSelectPredecessor(f)}
-              >
-                {f}
-              </Button>
-            ))}
-          </div>
+          <Table>
+            <TableBody>
+              {candidates.map((f) => (
+                <TableRow
+                  key={f}
+                  className="cursor-pointer"
+                  onClick={() => handleSelectPredecessor(f)}
+                >
+                  <TableCell className="py-1.5 text-xs">{f}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </DialogContent>
       </Dialog>
     </div>
