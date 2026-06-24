@@ -31,6 +31,8 @@ interface AppState {
   setProjectReady: (ready: boolean) => void;
   backgroundTask: string | null;
   setBackgroundTask: (task: string | null) => void;
+  isDiffMode: boolean;
+  setIsDiffMode: (isDiffMode: boolean) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -88,6 +90,8 @@ export const useAppStore = create<AppState>()(
       setProjectReady: (ready) => set({ isProjectReady: ready }),
       backgroundTask: null,
       setBackgroundTask: (task) => set({ backgroundTask: task }),
+      isDiffMode: false,
+      setIsDiffMode: (isDiffMode) => set({ isDiffMode }),
     }),
     {
       name: "velgit-store",

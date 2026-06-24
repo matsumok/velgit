@@ -190,7 +190,12 @@ export function DrawingTable({
               <TableRow
                 key={row.id}
                 data-state={activeRow === row.id ? "selected" : undefined}
-                className="cursor-pointer"
+                className={cn(
+                  "cursor-pointer border-l-2",
+                  activeRow === row.id
+                    ? "border-l-primary"
+                    : "border-l-transparent",
+                )}
                 onClick={(e) => {
                   e.stopPropagation();
                   setActiveRow(row.id);
