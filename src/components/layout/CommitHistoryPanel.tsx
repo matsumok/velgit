@@ -167,12 +167,14 @@ export function CommitHistoryPanel() {
     isDiffMode && selectedHistoryOid !== null ? diffBaseOid : null,
   );
 
-  // diff結果が「変更なし」と確定している状態（ロード中は false）
-  const diffKnownNone = !diffLoading && diffResult?.changeType === "none";
+  // diff結果が「意味なし（none / minor）」と確定している状態（ロード中は false）
+  const diffKnownMeaningless =
+    !diffLoading &&
+    (diffResult?.changeType === "none" || diffResult?.changeType === "minor");
 
-  // off mode または diff結果が変更なしのとき履歴コミットのプレビューを取得
+  // off mode または diff結果が意味なしのとき履歴コミットのプレビューを取得
   const needHistoryPreview =
-    (!isDiffMode || diffKnownNone) && selectedHistoryOid !== null;
+    (!isDiffMode || diffKnownMeaningless) && selectedHistoryOid !== null;
   const { data: historyPreviewUrl, isLoading: historyPreviewLoading } =
     useDrawingPreview(
       needHistoryPreview ? selectedDrawing : null,
@@ -252,9 +254,9 @@ export function CommitHistoryPanel() {
             className={cn(
               "w-full px-3 py-2",
               selectedHistoryOid !== null &&
-                !diffKnownNone &&
+                !diffKnownMeaningless &&
                 "bg-blue-100 dark:bg-blue-950",
-              selectedHistoryOid !== null && diffKnownNone && "bg-muted",
+              selectedHistoryOid !== null && diffKnownMeaningless && "bg-muted",
             )}
           >
             {hasUncommitted ? (
@@ -322,10 +324,12 @@ export function CommitHistoryPanel() {
                     onClick={() => setSelectedHistoryOid(commit.oid)}
                     className={cn(
                       "w-full justify-start h-auto px-3 py-2 font-normal",
-                      selected && (!isDiffMode || diffKnownNone) && "bg-muted",
+                      selected &&
+                        (!isDiffMode || diffKnownMeaningless) &&
+                        "bg-muted",
                       selected &&
                         isDiffMode &&
-                        !diffKnownNone &&
+                        !diffKnownMeaningless &&
                         "bg-red-100 dark:bg-red-950",
                       isFaded && "opacity-40",
                     )}
@@ -345,7 +349,7 @@ export function CommitHistoryPanel() {
 
       {/* 下部: diff / 履歴プレビュー / 現在プレビュー */}
       <div className="flex-1 min-h-0 overflow-y-auto border-t">
-        {isDiffMode && selectedHistoryOid !== null && !diffKnownNone ? (
+        {isDiffMode && selectedHistoryOid !== null && !diffKnownMeaningless ? (
           <div className="p-2">
             {diffResult && (
               <p className="text-xs text-muted-foreground mb-2 px-1">
@@ -365,7 +369,8 @@ export function CommitHistoryPanel() {
               }
             />
           </div>
-        ) : (!isDiffMode || diffKnownNone) && selectedHistoryOid !== null ? (
+        ) : (!isDiffMode || diffKnownMeaningless) &&
+          selectedHistoryOid !== null ? (
           historyPreviewLoading ? (
             <div className="flex h-20 items-center justify-center">
               <Spinner />
