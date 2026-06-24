@@ -104,7 +104,10 @@ export function DrawingTable({
       },
       {
         accessorKey: "filename",
-        header: "全図面",
+        header: ({ table }) =>
+          table.getRowModel().rows.some((r) => r.getCanSelect())
+            ? "全図面"
+            : null,
         cell: ({ row }) => (
           <span
             className={cn(
