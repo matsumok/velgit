@@ -8,13 +8,18 @@ export function useInitProject() {
     useAppStore();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [needsInit, setNeedsInit] = useState(false);
 
   useEffect(() => {
-    if (!selectedProject) return;
+    if (!selectedProject) {
+      setNeedsInit(false);
+      return;
+    }
+    setNeedsInit(false);
     invoke<boolean>("is_initialized", { path: selectedProject }).then(
       (initialized) => {
         if (!initialized) {
-          selectJob(null);
+          setNeedsInit(true);
           return;
         }
         invoke("init_working_folder", { path: selectedProject })
@@ -55,5 +60,20 @@ export function useInitProject() {
     }
   }
 
-  return { error, loading, openFolder };
+  async function initCurrentJob() {
+    if (!selectedProject) return;
+    setLoading(true);
+    setError(null);
+    try {
+      await invoke("init_working_folder", { path: selectedProject });
+      setNeedsInit(false);
+      setProjectReady(true);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return { error, loading, openFolder, needsInit, initCurrentJob };
 }

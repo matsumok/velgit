@@ -53,7 +53,8 @@ function LeftPane() {
 function CenterPane() {
   const { selectedProject, selectedCommitOid, setSelectedDrawing } =
     useAppStore();
-  const { error, loading, openFolder } = useInitProject();
+  const { error, loading, openFolder, needsInit, initCurrentJob } =
+    useInitProject();
   const { data: changes } = useGetPendingChanges();
   const { data: headDrawings } = useGetDrawings();
   const { data: pastDrawings } = useGetDrawingsAtCommit(selectedCommitOid);
@@ -106,6 +107,25 @@ function CenterPane() {
         )}
         <Button onClick={openFolder} disabled={loading}>
           {loading ? "初期化中..." : "ワーキングフォルダを開く"}
+        </Button>
+      </div>
+    );
+  }
+
+  if (needsInit) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-4">
+        <p className="text-sm text-muted-foreground px-4 text-center">
+          このフォルダは初期化されていません
+        </p>
+        <p className="text-xs text-muted-foreground font-mono px-4 text-center break-all">
+          {selectedProject}
+        </p>
+        {error && (
+          <p className="text-sm text-destructive px-4 text-center">{error}</p>
+        )}
+        <Button onClick={initCurrentJob} disabled={loading}>
+          {loading ? "初期化中..." : "初期化する"}
         </Button>
       </div>
     );

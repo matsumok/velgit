@@ -75,7 +75,7 @@ export function JobSelector() {
                   {[...jobs]
                     .sort((a, b) => b.createdAt - a.createdAt)
                     .map((job) => (
-                      <li key={job.id} className="group flex items-center">
+                      <li key={job.id} className="flex items-center">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -87,7 +87,7 @@ export function JobSelector() {
                         >
                           {job.name}
                         </Button>
-                        <div className="flex gap-0.5 pr-1 opacity-0 group-hover:opacity-100 shrink-0">
+                        <div className="flex gap-0.5 pr-1 shrink-0">
                           <Button
                             variant="ghost"
                             size="icon-xs"

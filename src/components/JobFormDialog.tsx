@@ -61,7 +61,7 @@ export function JobFormDialog({ open, onOpenChange, editJob }: Props) {
         <DialogHeader>
           <DialogTitle>{isEdit ? "Job編集" : "新規Job登録"}</DialogTitle>
         </DialogHeader>
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 min-w-0">
           <div>
             <p className="text-xs text-muted-foreground mb-1">フォルダ</p>
             <div className="flex gap-2">
