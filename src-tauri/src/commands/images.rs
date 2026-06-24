@@ -148,8 +148,9 @@ pub async fn get_pdf_image(
     let path = require_repo_path(&state)?;
     let pool = get_pool_opt(&state);
 
-    // git2 は !Send のためスコープ内で完結させる
-    let (blob_oid, pdf_bytes) = {
+    let (blob_oid, pdf_bytes) = if let Some(ref pool) = pool {
+        repository::resolve_blob_with_lineage(&path, &oid, &filename, pool).await?
+    } else {
         let repo = git2::Repository::open(&path).map_err(|e| e.to_string())?;
         extract_blob_with_oid(&repo, &oid, &filename)?
     };
