@@ -1,7 +1,7 @@
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use tauri::State;
 
-use crate::{diff, image_cache, pdf, png_encode_fast, AppState};
+use crate::{diff, image_cache, pdf, png_encode_fast, repository, AppState};
 
 use super::{extract_blob_with_oid, get_pool_opt, require_repo_path, GenerateDiffResult};
 
@@ -16,36 +16,46 @@ pub async fn generate_diff(
     let path = require_repo_path(&state)?;
     let pool = get_pool_opt(&state);
 
-    // git2 は !Send のためスコープ内で完結させる
-    let (blob_oid_a, pdf_a, blob_oid_b, pdf_b) = {
-        let repo = git2::Repository::open(&path).map_err(|e| e.to_string())?;
-        let (blob_oid_a, pdf_a) = extract_blob_with_oid(&repo, &oid_a, &filename)?;
-
-        match oid_b {
-            Some(ref oid_b_str) => {
-                let (blob_oid_b, pdf_b) =
-                    extract_blob_with_oid(&repo, oid_b_str, &filename)?;
-                if blob_oid_a == blob_oid_b {
+    let (blob_oid_a, pdf_a, blob_oid_b, pdf_b) = match oid_b {
+        Some(ref oid_b_str) => {
+            let (blob_oid_a, pdf_a) = if let Some(ref pool) = pool {
+                repository::resolve_blob_with_lineage(&path, &oid_a, &filename, pool).await?
+            } else {
+                let repo = git2::Repository::open(&path).map_err(|e| e.to_string())?;
+                extract_blob_with_oid(&repo, &oid_a, &filename)?
+            };
+            let (blob_oid_b, pdf_b) = if let Some(ref pool) = pool {
+                repository::resolve_blob_with_lineage(&path, oid_b_str, &filename, pool).await?
+            } else {
+                let repo = git2::Repository::open(&path).map_err(|e| e.to_string())?;
+                extract_blob_with_oid(&repo, oid_b_str, &filename)?
+            };
+            if blob_oid_a == blob_oid_b {
+                return Ok(GenerateDiffResult {
+                    change_type: "none".to_string(),
+                    url: None,
+                });
+            }
+            (blob_oid_a, pdf_a, Some(blob_oid_b), pdf_b)
+        }
+        None => {
+            // 作業コピーと比較。ファイルがなければ差分なしを返す
+            let (blob_oid_a, pdf_a) = if let Some(ref pool) = pool {
+                repository::resolve_blob_with_lineage(&path, &oid_a, &filename, pool).await?
+            } else {
+                let repo = git2::Repository::open(&path).map_err(|e| e.to_string())?;
+                extract_blob_with_oid(&repo, &oid_a, &filename)?
+            };
+            let pdf_b = match std::fs::read(path.join(&filename)) {
+                Ok(bytes) => bytes,
+                Err(_) => {
                     return Ok(GenerateDiffResult {
                         change_type: "none".to_string(),
                         url: None,
-                    });
+                    })
                 }
-                (blob_oid_a, pdf_a, Some(blob_oid_b), pdf_b)
-            }
-            None => {
-                // 作業コピーと比較。ファイルがなければ差分なしを返す
-                let pdf_b = match std::fs::read(path.join(&filename)) {
-                    Ok(bytes) => bytes,
-                    Err(_) => {
-                        return Ok(GenerateDiffResult {
-                            change_type: "none".to_string(),
-                            url: None,
-                        })
-                    }
-                };
-                (blob_oid_a, pdf_a, None::<String>, pdf_b)
-            }
+            };
+            (blob_oid_a, pdf_a, None::<String>, pdf_b)
         }
     };
     eprintln!("[PERF] stage1 git blob extract: {:.3}s  pdf_a={}KB  pdf_b={}KB",

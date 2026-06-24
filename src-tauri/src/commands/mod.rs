@@ -37,6 +37,7 @@ pub struct CommitEntryDto {
     pub timestamp: i64,
     pub change_type: Option<String>,
     pub blob_oid: Option<String>,
+    pub source_filename: Option<String>,
 }
 
 impl From<CommitEntry> for CommitEntryDto {
@@ -48,6 +49,7 @@ impl From<CommitEntry> for CommitEntryDto {
             timestamp: e.timestamp,
             change_type: None,
             blob_oid: if e.blob_oid.is_empty() { None } else { Some(e.blob_oid) },
+            source_filename: e.source_filename,
         }
     }
 }
@@ -58,6 +60,13 @@ pub struct PendingChangeDto {
     pub filename: String,
     pub status: String,
     pub change_type: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LineagePair {
+    pub successor: String,
+    pub predecessor: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

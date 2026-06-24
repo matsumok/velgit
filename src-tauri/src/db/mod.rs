@@ -106,6 +106,37 @@ impl DbPool {
         Ok(rows.into_iter().collect())
     }
 
+    pub async fn insert_lineage(
+        &self,
+        pairs: &[(String, String)],
+        commit_oid: &str,
+    ) -> Result<(), sqlx::Error> {
+        for (successor, predecessor) in pairs {
+            sqlx::query(
+                "INSERT OR REPLACE INTO drawing_lineage (successor_filename, predecessor_filename, linked_at_commit_oid) VALUES (?, ?, ?)",
+            )
+            .bind(successor)
+            .bind(predecessor)
+            .bind(commit_oid)
+            .execute(&self.0)
+            .await?;
+        }
+        Ok(())
+    }
+
+    pub async fn get_predecessor(
+        &self,
+        filename: &str,
+    ) -> Result<Option<String>, sqlx::Error> {
+        let row: Option<(String,)> = sqlx::query_as(
+            "SELECT predecessor_filename FROM drawing_lineage WHERE successor_filename = ?",
+        )
+        .bind(filename)
+        .fetch_optional(&self.0)
+        .await?;
+        Ok(row.map(|(p,)| p))
+    }
+
     pub async fn get_change_types_for_file(
         &self,
         commit_oids: &[String],
@@ -265,6 +296,81 @@ mod tests {
         let pool = DbPool::open(&db_path).await.unwrap();
         let row: (i64,) = sqlx::query_as(
             "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='release_drawings'",
+        )
+        .fetch_one(&pool.0)
+        .await
+        .unwrap();
+        assert_eq!(row.0, 1);
+    }
+
+    #[tokio::test]
+    async fn insert_lineage_records_predecessor() {
+        let dir = tempdir().unwrap();
+        let pool = DbPool::open(&dir.path().join("velgit.db")).await.unwrap();
+
+        pool.insert_lineage(&[("201_AA.pdf".to_string(), "101_AA.pdf".to_string())], "abc123")
+            .await
+            .unwrap();
+
+        let row: (String,) = sqlx::query_as(
+            "SELECT predecessor_filename FROM drawing_lineage WHERE successor_filename = '201_AA.pdf'",
+        )
+        .fetch_one(&pool.0)
+        .await
+        .unwrap();
+        assert_eq!(row.0, "101_AA.pdf");
+    }
+
+    #[tokio::test]
+    async fn get_predecessor_returns_linked_filename() {
+        let dir = tempdir().unwrap();
+        let pool = DbPool::open(&dir.path().join("velgit.db")).await.unwrap();
+        pool.insert_lineage(&[("201_AA.pdf".to_string(), "101_AA.pdf".to_string())], "abc123")
+            .await
+            .unwrap();
+
+        let result = pool.get_predecessor("201_AA.pdf").await.unwrap();
+
+        assert_eq!(result, Some("101_AA.pdf".to_string()));
+    }
+
+    #[tokio::test]
+    async fn get_predecessor_returns_none_when_not_set() {
+        let dir = tempdir().unwrap();
+        let pool = DbPool::open(&dir.path().join("velgit.db")).await.unwrap();
+
+        let result = pool.get_predecessor("201_AA.pdf").await.unwrap();
+
+        assert_eq!(result, None);
+    }
+
+    #[tokio::test]
+    async fn insert_lineage_overwrites_on_duplicate_successor() {
+        let dir = tempdir().unwrap();
+        let pool = DbPool::open(&dir.path().join("velgit.db")).await.unwrap();
+
+        pool.insert_lineage(&[("201_AA.pdf".to_string(), "101_AA.pdf".to_string())], "abc123")
+            .await
+            .unwrap();
+        pool.insert_lineage(&[("201_AA.pdf".to_string(), "099_AA.pdf".to_string())], "def456")
+            .await
+            .unwrap();
+
+        let result = pool.get_predecessor("201_AA.pdf").await.unwrap();
+        assert_eq!(result, Some("099_AA.pdf".to_string()));
+
+        let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM drawing_lineage WHERE successor_filename = '201_AA.pdf'")
+            .fetch_one(&pool.0).await.unwrap();
+        assert_eq!(count.0, 1);
+    }
+
+    #[tokio::test]
+    async fn open_creates_drawing_lineage_table() {
+        let dir = tempdir().unwrap();
+        let db_path = dir.path().join("velgit.db");
+        let pool = DbPool::open(&db_path).await.unwrap();
+        let row: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='drawing_lineage'",
         )
         .fetch_one(&pool.0)
         .await

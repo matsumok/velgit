@@ -13,4 +13,5 @@ export const queryKeys = {
     ["drawings_at_commit", project, oid] as const,
   changesAtCommit: (project: string, oid: string) =>
     ["changes_at_commit", project, oid] as const,
+  headFiles: (project: string) => ["head_files", project] as const,
 };

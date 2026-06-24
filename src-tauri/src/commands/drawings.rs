@@ -72,6 +72,14 @@ pub fn get_drawings_at_commit(
 }
 
 #[tauri::command]
+pub fn get_head_files(state: State<'_, AppState>) -> Result<Vec<String>, String> {
+    let Ok(path) = require_repo_path(&state) else {
+        return Ok(vec![]);
+    };
+    repository::head_files(&path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn get_pending_changes(
     state: State<'_, AppState>,
 ) -> Result<Vec<PendingChangeDto>, String> {

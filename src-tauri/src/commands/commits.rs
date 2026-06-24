@@ -8,12 +8,13 @@ use crate::{
     AppState,
 };
 
-use super::{get_pool_opt, require_repo_path, CommitEntryDto};
+use super::{get_pool_opt, require_repo_path, CommitEntryDto, LineagePair};
 
 #[tauri::command]
 pub async fn commit_changes(
     message: String,
     included_files: Vec<String>,
+    predecessors: Vec<LineagePair>,
     created_by: String,
     state: State<'_, AppState>,
     app_handle: tauri::AppHandle,
@@ -57,6 +58,19 @@ pub async fn commit_changes(
         db.insert_commit_files(&oid_str, &records)
             .await
             .map_err(|e| e.to_string())?;
+    }
+
+    if let Some(pool) = &pool {
+        if !predecessors.is_empty() {
+            let pairs: Vec<(String, String)> = predecessors
+                .iter()
+                .map(|p| (p.successor.clone(), p.predecessor.clone()))
+                .collect();
+            let db = DbPool(pool.clone());
+            db.insert_lineage(&pairs, &oid_str)
+                .await
+                .map_err(|e| e.to_string())?;
+        }
     }
 
     // 初期レコード挿入完了 → フロントのタイムラインを即時更新
@@ -185,8 +199,13 @@ pub async fn get_commit_history(
     };
     let pool = get_pool_opt(&state);
 
-    let entries =
-        repository::commit_history(&path, &filename).map_err(|e| e.to_string())?;
+    let entries = if let Some(ref pool) = pool {
+        repository::lineage_history(&path, &filename, pool)
+            .await
+            .map_err(|e| e.to_string())?
+    } else {
+        repository::commit_history(&path, &filename).map_err(|e| e.to_string())?
+    };
 
     let change_type_map = if let Some(pool) = pool {
         let oids: Vec<String> = entries.iter().map(|e| e.oid.clone()).collect();
@@ -209,6 +228,7 @@ pub async fn get_commit_history(
                 timestamp: e.timestamp,
                 change_type,
                 blob_oid: Some(e.blob_oid),
+                source_filename: e.source_filename,
             }
         })
         .collect();

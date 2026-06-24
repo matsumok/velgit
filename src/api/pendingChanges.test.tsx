@@ -36,6 +36,7 @@ describe("useCommitChanges", () => {
     expect(vi.mocked(invoke)).toHaveBeenCalledWith("commit_changes", {
       message: "テストコミット",
       includedFiles: [],
+      predecessors: [],
       createdBy: "山田太郎",
     });
   });
@@ -54,6 +55,46 @@ describe("useCommitChanges", () => {
     expect(vi.mocked(invoke)).toHaveBeenCalledWith("commit_changes", {
       message: "変更",
       includedFiles: ["図面A.pdf", "図面B.pdf"],
+      predecessors: [],
+      createdBy: "鈴木花子",
+    });
+  });
+
+  it("predecessorsを指定するとinvokeに渡す", async () => {
+    const { result } = renderHook(() => useCommitChanges(), {
+      wrapper: createWrapper(),
+    });
+    await act(async () => {
+      await result.current.mutateAsync({
+        message: "図番改訂",
+        includedFiles: ["201_AA.pdf"],
+        predecessors: [{ successor: "201_AA.pdf", predecessor: "101_AA.pdf" }],
+        createdBy: "山田太郎",
+      });
+    });
+    expect(vi.mocked(invoke)).toHaveBeenCalledWith("commit_changes", {
+      message: "図番改訂",
+      includedFiles: ["201_AA.pdf"],
+      predecessors: [{ successor: "201_AA.pdf", predecessor: "101_AA.pdf" }],
+      createdBy: "山田太郎",
+    });
+  });
+
+  it("predecessors未指定のとき空配列をinvokeに渡す", async () => {
+    const { result } = renderHook(() => useCommitChanges(), {
+      wrapper: createWrapper(),
+    });
+    await act(async () => {
+      await result.current.mutateAsync({
+        message: "通常コミット",
+        includedFiles: ["A-001.pdf"],
+        createdBy: "鈴木花子",
+      });
+    });
+    expect(vi.mocked(invoke)).toHaveBeenCalledWith("commit_changes", {
+      message: "通常コミット",
+      includedFiles: ["A-001.pdf"],
+      predecessors: [],
       createdBy: "鈴木花子",
     });
   });

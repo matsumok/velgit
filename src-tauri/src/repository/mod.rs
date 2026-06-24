@@ -96,6 +96,7 @@ pub struct CommitEntry {
     pub author: String,
     pub timestamp: i64,
     pub blob_oid: String,
+    pub source_filename: Option<String>,
 }
 
 pub fn commit_history(repo_path: &Path, filename: &str) -> Result<Vec<CommitEntry>, git2::Error> {
@@ -127,6 +128,7 @@ pub fn commit_history(repo_path: &Path, filename: &str) -> Result<Vec<CommitEntr
             author: commit.author().name().unwrap_or("").to_string(),
             timestamp: commit.time().seconds(),
             blob_oid: entry.id().to_string(),
+            source_filename: None,
         });
     }
     Ok(entries)
@@ -149,9 +151,73 @@ pub fn project_commits(repo_path: &Path) -> Result<Vec<CommitEntry>, git2::Error
             author: commit.author().name().unwrap_or("").to_string(),
             timestamp: commit.time().seconds(),
             blob_oid: String::new(),
+            source_filename: None,
         });
     }
     Ok(entries)
+}
+
+pub async fn resolve_blob_with_lineage(
+    repo_path: &Path,
+    oid_str: &str,
+    filename: &str,
+    pool: &sqlx::SqlitePool,
+) -> Result<(String, Vec<u8>), String> {
+    let db = crate::db::DbPool(pool.clone());
+    let mut current = filename.to_string();
+
+    loop {
+        let path = repo_path.to_path_buf();
+        let oid = oid_str.to_string();
+        let name = current.clone();
+        let result = tokio::task::spawn_blocking(move || {
+            let repo = git2::Repository::open(&path).map_err(|e| e.to_string())?;
+            crate::commands::extract_blob_with_oid(&repo, &oid, &name)
+        })
+        .await
+        .map_err(|e| e.to_string())?;
+
+        match result {
+            Ok(blob) => return Ok(blob),
+            Err(_) => match db.get_predecessor(&current).await.unwrap_or(None) {
+                Some(pred) => current = pred,
+                None => {
+                    return Err(format!(
+                        "{filename} はコミット {oid_str} に存在せず lineage も辿れません"
+                    ))
+                }
+            },
+        }
+    }
+}
+
+pub async fn lineage_history(
+    repo_path: &Path,
+    filename: &str,
+    pool: &sqlx::SqlitePool,
+) -> Result<Vec<CommitEntry>, git2::Error> {
+    let db = crate::db::DbPool(pool.clone());
+    let mut all_entries: Vec<CommitEntry> = Vec::new();
+    let mut current = filename.to_string();
+
+    loop {
+        let mut entries = commit_history(repo_path, &current)?;
+        let is_predecessor = current != filename;
+        if is_predecessor {
+            for e in &mut entries {
+                e.source_filename = Some(current.clone());
+            }
+        }
+        all_entries.extend(entries);
+
+        match db.get_predecessor(&current).await.unwrap_or(None) {
+            Some(pred) => current = pred,
+            None => break,
+        }
+    }
+
+    all_entries.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+    Ok(all_entries)
 }
 
 pub fn changes_at_commit(repo_path: &Path, oid_str: &str) -> Result<Vec<PendingChange>, git2::Error> {
@@ -223,6 +289,13 @@ pub fn drawings_at_commit(repo_path: &Path, oid_str: &str) -> Result<Vec<String>
         git2::TreeWalkResult::Ok
     })?;
     Ok(filenames)
+}
+
+pub fn head_files(repo_path: &Path) -> Result<Vec<String>, git2::Error> {
+    ensure_safe_directory(repo_path);
+    let repo = git2::Repository::open(repo_path)?;
+    let head_oid = repo.head()?.peel_to_commit()?.id().to_string();
+    drawings_at_commit(repo_path, &head_oid)
 }
 
 #[derive(Debug, PartialEq)]
@@ -632,5 +705,196 @@ mod tests {
 
         assert_eq!(filenames.len(), 1);
         assert!(filenames.contains(&"A-001_平面図.pdf".to_string()));
+    }
+
+    // ─── lineage_history tests ────────────────────────────────────────────────
+
+    async fn open_pool(dir: &std::path::Path) -> sqlx::SqlitePool {
+        let db_path = dir.join(".git").join("velgit").join("velgit.db");
+        fs::create_dir_all(db_path.parent().unwrap()).unwrap();
+        crate::db::DbPool::open(&db_path).await.unwrap().0
+    }
+
+    #[tokio::test]
+    async fn lineage_history_includes_predecessor_commits() {
+        let dir = tempdir().unwrap();
+        make_repo(dir.path());
+        // 旧ファイル 101_AA.pdf のコミット
+        fs::write(dir.path().join("101_AA.pdf"), b"v1").unwrap();
+        commit(dir.path(), "101初版", "user-a").unwrap();
+        // 新ファイル 201_AA.pdf に切り替え（旧ファイル削除）
+        fs::remove_file(dir.path().join("101_AA.pdf")).unwrap();
+        fs::write(dir.path().join("201_AA.pdf"), b"v1").unwrap();
+        commit(dir.path(), "201初版", "user-a").unwrap();
+        let pool = open_pool(dir.path()).await;
+        // lineage を設定: 201_AA.pdf → 101_AA.pdf
+        crate::db::DbPool(pool.clone())
+            .insert_lineage(&[("201_AA.pdf".to_string(), "101_AA.pdf".to_string())], "dummy")
+            .await
+            .unwrap();
+
+        let history = lineage_history(dir.path(), "201_AA.pdf", &pool).await.unwrap();
+
+        assert_eq!(history.len(), 2);
+        let messages: Vec<&str> = history.iter().map(|e| e.message.as_str()).collect();
+        assert!(messages.contains(&"201初版"));
+        assert!(messages.contains(&"101初版"));
+    }
+
+    #[tokio::test]
+    async fn lineage_history_sets_source_filename_on_predecessor_entries() {
+        let dir = tempdir().unwrap();
+        make_repo(dir.path());
+        fs::write(dir.path().join("101_AA.pdf"), b"v1").unwrap();
+        commit(dir.path(), "101初版", "user-a").unwrap();
+        fs::remove_file(dir.path().join("101_AA.pdf")).unwrap();
+        fs::write(dir.path().join("201_AA.pdf"), b"v1").unwrap();
+        commit(dir.path(), "201初版", "user-a").unwrap();
+        let pool = open_pool(dir.path()).await;
+        crate::db::DbPool(pool.clone())
+            .insert_lineage(&[("201_AA.pdf".to_string(), "101_AA.pdf".to_string())], "dummy")
+            .await
+            .unwrap();
+
+        let history = lineage_history(dir.path(), "201_AA.pdf", &pool).await.unwrap();
+
+        let entry_101 = history.iter().find(|e| e.message == "101初版").unwrap();
+        let entry_201 = history.iter().find(|e| e.message == "201初版").unwrap();
+        assert_eq!(entry_101.source_filename, Some("101_AA.pdf".to_string()));
+        assert_eq!(entry_201.source_filename, None);
+    }
+
+    #[tokio::test]
+    async fn lineage_history_traverses_two_generation_chain() {
+        let dir = tempdir().unwrap();
+        make_repo(dir.path());
+        // A: 001_AA.pdf
+        fs::write(dir.path().join("001_AA.pdf"), b"v1").unwrap();
+        commit(dir.path(), "001初版", "user-a").unwrap();
+        // B: 101_AA.pdf
+        fs::remove_file(dir.path().join("001_AA.pdf")).unwrap();
+        fs::write(dir.path().join("101_AA.pdf"), b"v1").unwrap();
+        commit(dir.path(), "101初版", "user-a").unwrap();
+        // C: 201_AA.pdf
+        fs::remove_file(dir.path().join("101_AA.pdf")).unwrap();
+        fs::write(dir.path().join("201_AA.pdf"), b"v1").unwrap();
+        commit(dir.path(), "201初版", "user-a").unwrap();
+        let pool = open_pool(dir.path()).await;
+        let db = crate::db::DbPool(pool.clone());
+        db.insert_lineage(&[("101_AA.pdf".to_string(), "001_AA.pdf".to_string())], "d1").await.unwrap();
+        db.insert_lineage(&[("201_AA.pdf".to_string(), "101_AA.pdf".to_string())], "d2").await.unwrap();
+
+        let history = lineage_history(dir.path(), "201_AA.pdf", &pool).await.unwrap();
+
+        assert_eq!(history.len(), 3);
+        let messages: Vec<&str> = history.iter().map(|e| e.message.as_str()).collect();
+        assert!(messages.contains(&"001初版"));
+        assert!(messages.contains(&"101初版"));
+        assert!(messages.contains(&"201初版"));
+    }
+
+    #[tokio::test]
+    async fn lineage_history_without_lineage_matches_commit_history() {
+        let dir = tempdir().unwrap();
+        make_repo(dir.path());
+        fs::write(dir.path().join("A-001.pdf"), b"v1").unwrap();
+        commit(dir.path(), "初版", "user-a").unwrap();
+        fs::write(dir.path().join("A-001.pdf"), b"v2").unwrap();
+        commit(dir.path(), "修正", "user-a").unwrap();
+        let pool = open_pool(dir.path()).await;
+
+        let lineage = lineage_history(dir.path(), "A-001.pdf", &pool).await.unwrap();
+        let direct = commit_history(dir.path(), "A-001.pdf").unwrap();
+
+        assert_eq!(lineage.len(), direct.len());
+        assert_eq!(lineage[0].oid, direct[0].oid);
+        assert_eq!(lineage[1].oid, direct[1].oid);
+    }
+
+    // ─── resolve_blob_with_lineage tests ─────────────────────────────────────
+
+    #[tokio::test]
+    async fn resolve_blob_lineage_fallback_returns_predecessor_blob() {
+        let dir = tempdir().unwrap();
+        make_repo(dir.path());
+        // 旧ファイルをコミット
+        fs::write(dir.path().join("101_AA.pdf"), b"old-content").unwrap();
+        let old_oid = commit(dir.path(), "旧版", "user-a").unwrap().to_string();
+        // 新ファイルに置き換え（旧ファイル削除）
+        fs::remove_file(dir.path().join("101_AA.pdf")).unwrap();
+        fs::write(dir.path().join("201_AA.pdf"), b"new-content").unwrap();
+        commit(dir.path(), "新版", "user-a").unwrap();
+        let pool = open_pool(dir.path()).await;
+        crate::db::DbPool(pool.clone())
+            .insert_lineage(&[("201_AA.pdf".to_string(), "101_AA.pdf".to_string())], "d1")
+            .await
+            .unwrap();
+
+        // old_oid には 201_AA.pdf が存在しない → 101_AA.pdf にフォールバック
+        let (_blob_oid, content) =
+            resolve_blob_with_lineage(dir.path(), &old_oid, "201_AA.pdf", &pool)
+                .await
+                .unwrap();
+
+        assert_eq!(content, b"old-content");
+    }
+
+    #[tokio::test]
+    async fn resolve_blob_two_generation_chain() {
+        let dir = tempdir().unwrap();
+        make_repo(dir.path());
+        // 001_AA.pdf → 101_AA.pdf → 201_AA.pdf
+        fs::write(dir.path().join("001_AA.pdf"), b"gen1-content").unwrap();
+        let gen1_oid = commit(dir.path(), "第1世代", "user-a").unwrap().to_string();
+        fs::remove_file(dir.path().join("001_AA.pdf")).unwrap();
+        fs::write(dir.path().join("101_AA.pdf"), b"gen2-content").unwrap();
+        commit(dir.path(), "第2世代", "user-a").unwrap();
+        fs::remove_file(dir.path().join("101_AA.pdf")).unwrap();
+        fs::write(dir.path().join("201_AA.pdf"), b"gen3-content").unwrap();
+        commit(dir.path(), "第3世代", "user-a").unwrap();
+        let pool = open_pool(dir.path()).await;
+        let db = crate::db::DbPool(pool.clone());
+        db.insert_lineage(&[("101_AA.pdf".to_string(), "001_AA.pdf".to_string())], "d1").await.unwrap();
+        db.insert_lineage(&[("201_AA.pdf".to_string(), "101_AA.pdf".to_string())], "d2").await.unwrap();
+
+        // gen1_oid には 201_AA.pdf も 101_AA.pdf も存在しない → 001_AA.pdf まで辿る
+        let (_blob_oid, content) =
+            resolve_blob_with_lineage(dir.path(), &gen1_oid, "201_AA.pdf", &pool)
+                .await
+                .unwrap();
+
+        assert_eq!(content, b"gen1-content");
+    }
+
+    #[tokio::test]
+    async fn resolve_blob_not_found_returns_error() {
+        let dir = tempdir().unwrap();
+        make_repo(dir.path());
+        fs::write(dir.path().join("A-001.pdf"), b"content").unwrap();
+        let oid = commit(dir.path(), "初版", "user-a").unwrap().to_string();
+        let pool = open_pool(dir.path()).await;
+
+        // 存在しないファイル名、lineage もなし → Err
+        let result =
+            resolve_blob_with_lineage(dir.path(), &oid, "NONEXISTENT.pdf", &pool).await;
+
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn resolve_blob_no_lineage_returns_blob_directly() {
+        let dir = tempdir().unwrap();
+        make_repo(dir.path());
+        fs::write(dir.path().join("A-001.pdf"), b"pdf-content-v1").unwrap();
+        let oid = commit(dir.path(), "初版", "user-a").unwrap().to_string();
+        let pool = open_pool(dir.path()).await;
+
+        let (blob_oid, content) =
+            resolve_blob_with_lineage(dir.path(), &oid, "A-001.pdf", &pool)
+                .await
+                .unwrap();
+
+        assert!(!blob_oid.is_empty());
+        assert_eq!(content, b"pdf-content-v1");
     }
 }

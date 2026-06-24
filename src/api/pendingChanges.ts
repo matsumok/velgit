@@ -22,6 +22,11 @@ export function useGetPendingChanges() {
   });
 }
 
+export interface LineagePair {
+  successor: string;
+  predecessor: string;
+}
+
 export function useCommitChanges() {
   const queryClient = useQueryClient();
   const selectedProject = useAppStore((s) => s.selectedProject);
@@ -29,12 +34,20 @@ export function useCommitChanges() {
     mutationFn: ({
       message,
       includedFiles,
+      predecessors = [],
       createdBy,
     }: {
       message: string;
       includedFiles: string[];
+      predecessors?: LineagePair[];
       createdBy: string;
-    }) => invoke<void>("commit_changes", { message, includedFiles, createdBy }),
+    }) =>
+      invoke<void>("commit_changes", {
+        message,
+        includedFiles,
+        predecessors,
+        createdBy,
+      }),
     onSuccess: () => {
       if (!selectedProject) return;
       queryClient.invalidateQueries({
