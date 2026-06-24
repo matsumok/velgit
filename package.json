@@ -12,7 +12,9 @@
     "lint": "biome lint .",
     "check": "biome check --write .",
     "test": "vitest",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "setup": "node scripts/setup-pdfium.mjs",
+    "tauri:dev": "node scripts/setup-pdfium.mjs && tauri dev"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

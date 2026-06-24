@@ -51,7 +51,8 @@ impl DiffAlgorithm for ThresholdDiff {
                     if delta > 0 {
                         any_changed.store(true, Relaxed);
                     }
-                    [new_px[0], new_px[1], new_px[2], new_px[3]]
+                    let lum = ((new_px[0] as u32 * 299 + new_px[1] as u32 * 587 + new_px[2] as u32 * 114) / 1000) as u8;
+                    [lum, lum, lum, new_px[3]]
                 }
             })
             .collect();
