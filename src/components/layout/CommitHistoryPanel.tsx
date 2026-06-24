@@ -262,7 +262,7 @@ export function CommitHistoryPanel() {
               "w-full px-3 py-2",
               selectedHistoryOid !== null &&
                 !diffKnownMeaningless &&
-                "bg-blue-100 dark:bg-blue-950",
+                "ring-2 ring-inset ring-blue-400 dark:ring-blue-500",
               selectedHistoryOid !== null && diffKnownMeaningless && "bg-muted",
             )}
           >
@@ -337,7 +337,7 @@ export function CommitHistoryPanel() {
                       selected &&
                         isDiffMode &&
                         !diffKnownMeaningless &&
-                        "bg-red-100 dark:bg-red-950",
+                        "ring-2 ring-inset ring-red-400 dark:ring-red-500",
                       isFaded && "opacity-40",
                     )}
                   >
