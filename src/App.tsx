@@ -10,7 +10,6 @@ import {
 } from "./api/projectCommits";
 import { queryKeys } from "./api/queryKeys";
 import { useGetReleaseDrawings } from "./api/releases";
-import { CommitDetailPanel } from "./components/CommitDetailPanel";
 import { CommitPanel } from "./components/commit/CommitPanel";
 import { JobSelector } from "./components/JobSelector";
 import { AppHeader } from "./components/layout/AppHeader";
@@ -18,7 +17,7 @@ import { CommitHistoryPanel } from "./components/layout/CommitHistoryPanel";
 import { DrawingTable } from "./components/layout/DrawingTable";
 import { ThreePaneLayout } from "./components/layout/ThreePaneLayout";
 import { ProjectTimeline } from "./components/ProjectTimeline";
-import { ReleaseDetailPanel } from "./components/ReleaseDetailPanel";
+import { SnapshotDetailPanel } from "./components/SnapshotDetailPanel";
 import { ReleasePanel } from "./components/ReleasePanel";
 import { UsernameGate } from "./components/UsernameGate";
 import { Button } from "./components/ui/button";
@@ -147,10 +146,14 @@ function CenterPane() {
         <ReleasePanel selectedFilenames={selectedFilenames} />
       )}
       {appMode.mode === "release" && (
-        <ReleaseDetailPanel releaseId={appMode.releaseId} />
+        <SnapshotDetailPanel mode="release" releaseId={appMode.releaseId} />
       )}
       {appMode.mode === "browse" && (
-        <CommitDetailPanel commitOid={appMode.commitOid} />
+        <SnapshotDetailPanel
+          mode="browse"
+          commitOid={appMode.commitOid}
+          selectedFilenames={selectedFilenames}
+        />
       )}
     </div>
   );

@@ -1,6 +1,6 @@
 use tauri::State;
 
-use crate::{pdf, releases, repository, AppState};
+use crate::{pdf, releases, AppState};
 
 use super::{require_pool, require_repo_path, ReleaseEntryDto};
 
@@ -104,17 +104,60 @@ pub async fn generate_bind_pdf(
 #[tauri::command]
 pub async fn generate_commit_bind_pdf(
     commit_oid: String,
+    filenames: Vec<String>,
     save_path: String,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     let path = require_repo_path(&state)?;
 
-    let mut filenames = repository::drawings_at_commit(&path, &commit_oid)
+    let mut sorted = filenames;
+    sorted.sort();
+
+    let repo = git2::Repository::open(&path).map_err(|e| e.to_string())?;
+    let bound = pdf::bind_from_commit(&repo, &commit_oid, &sorted)?;
+    std::fs::write(&save_path, &bound).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn generate_release_zip(
+    release_id: i64,
+    save_path: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let path = require_repo_path(&state)?;
+    let pool = require_pool(&state)?;
+
+    let release = releases::get_by_id(&pool, release_id)
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("リリース {release_id} が見つかりません"))?;
+
+    let mut filenames = releases::get_drawings(&pool, release_id)
+        .await
         .map_err(|e| e.to_string())?;
     filenames.sort();
 
     let repo = git2::Repository::open(&path).map_err(|e| e.to_string())?;
-    let bound = pdf::bind_from_commit(&repo, &commit_oid, &filenames)?;
-    std::fs::write(&save_path, &bound).map_err(|e| e.to_string())?;
+    let zip_bytes = pdf::zip_from_commit(&repo, &release.commit_oid, &filenames)?;
+    std::fs::write(&save_path, &zip_bytes).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn generate_commit_zip(
+    commit_oid: String,
+    filenames: Vec<String>,
+    save_path: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let path = require_repo_path(&state)?;
+
+    let mut sorted = filenames;
+    sorted.sort();
+
+    let repo = git2::Repository::open(&path).map_err(|e| e.to_string())?;
+    let zip_bytes = pdf::zip_from_commit(&repo, &commit_oid, &sorted)?;
+    std::fs::write(&save_path, &zip_bytes).map_err(|e| e.to_string())?;
     Ok(())
 }

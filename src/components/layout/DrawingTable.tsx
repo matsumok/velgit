@@ -36,7 +36,8 @@ function getStatusColor(
 }
 
 function canSelect(status: DrawingWithStatus["status"], mode: string): boolean {
-  return mode !== "browse" && (mode === "release" || status !== "unchanged");
+  if (mode === "browse") return true;
+  return mode === "release" || status !== "unchanged";
 }
 
 export function DrawingTable({

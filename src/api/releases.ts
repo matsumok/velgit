@@ -36,13 +36,51 @@ export function useGenerateCommitBindPdf() {
   return useMutation({
     mutationFn: ({
       commitOid,
+      filenames,
       savePath,
     }: {
       commitOid: string;
+      filenames: string[];
       savePath: string;
     }) =>
       invoke<void>("generate_commit_bind_pdf", {
         commitOid,
+        filenames,
+        savePath,
+      }),
+  });
+}
+
+export function useGenerateReleaseZip() {
+  return useMutation({
+    mutationFn: ({
+      releaseId,
+      savePath,
+    }: {
+      releaseId: number;
+      savePath: string;
+    }) =>
+      invoke<void>("generate_release_zip", {
+        releaseId,
+        savePath,
+      }),
+  });
+}
+
+export function useGenerateCommitZip() {
+  return useMutation({
+    mutationFn: ({
+      commitOid,
+      filenames,
+      savePath,
+    }: {
+      commitOid: string;
+      filenames: string[];
+      savePath: string;
+    }) =>
+      invoke<void>("generate_commit_zip", {
+        commitOid,
+        filenames,
         savePath,
       }),
   });

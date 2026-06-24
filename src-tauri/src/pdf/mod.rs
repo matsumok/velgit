@@ -41,6 +41,36 @@ pub fn bind(pdf_bytes_list: &[Vec<u8>]) -> Result<Vec<u8>, Box<dyn std::error::E
     Ok(dest.save_to_bytes()?)
 }
 
+pub fn zip_from_commit(
+    repo: &git2::Repository,
+    commit_oid: &str,
+    filenames: &[String],
+) -> Result<Vec<u8>, String> {
+    use std::io::{Cursor, Write};
+    use zip::write::SimpleFileOptions;
+
+    let oid = git2::Oid::from_str(commit_oid).map_err(|e| e.to_string())?;
+    let commit = repo.find_commit(oid).map_err(|e| e.to_string())?;
+    let tree = commit.tree().map_err(|e| e.to_string())?;
+
+    let buf = Cursor::new(Vec::new());
+    let mut writer = zip::ZipWriter::new(buf);
+    let options = SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated);
+
+    for filename in filenames {
+        let entry = tree
+            .get_name(filename)
+            .ok_or_else(|| format!("{filename} はこのコミットに存在しません"))?;
+        let blob = repo.find_blob(entry.id()).map_err(|e| e.to_string())?;
+        writer.start_file(filename, options).map_err(|e| e.to_string())?;
+        writer.write_all(blob.content()).map_err(|e| e.to_string())?;
+    }
+
+    let cursor = writer.finish().map_err(|e| e.to_string())?;
+    Ok(cursor.into_inner())
+}
+
 pub fn rasterize_to_image(data: &[u8], page: u32) -> Result<image::RgbaImage, Box<dyn std::error::Error>> {
     let pdfium = load_pdfium()?;
     let doc = pdfium.load_pdf_from_byte_slice(data, None)?;
