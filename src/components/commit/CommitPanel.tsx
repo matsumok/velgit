@@ -5,6 +5,15 @@ import { useCommitChanges } from "../../api/pendingChanges";
 import { cn } from "../../lib/utils";
 import { useAppStore } from "../../store/useAppStore";
 import { Button } from "../ui/button";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from "../ui/command";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Table, TableBody, TableCell, TableRow } from "../ui/table";
 import { Textarea } from "../ui/textarea";
@@ -157,41 +166,53 @@ export function CommitPanel({
           if (!open) setDialogOpenFor(null);
         }}
       >
-        <DialogContent>
-          <DialogHeader>
+        <DialogContent
+          showCloseButton={false}
+          className="p-0 gap-0 overflow-hidden"
+        >
+          <DialogHeader className="px-4 pt-4 pb-2">
             <DialogTitle>引き継ぎ元を選択</DialogTitle>
+            {dialogOpenFor && (
+              <p className="text-xs text-muted-foreground truncate">
+                {dialogOpenFor}
+              </p>
+            )}
           </DialogHeader>
-          <div className="flex flex-col gap-0.5 p-1">
-            {/* クリア選択肢 */}
-            <button
-              type="button"
-              onClick={() => handleSelectPredecessor(null)}
-              className={cn(
-                "text-left text-xs py-2 px-3 rounded-md transition-colors",
-                "text-muted-foreground hover:bg-primary/10 hover:text-foreground",
-                !currentPredecessor &&
-                  "bg-primary/10 text-foreground font-medium",
-              )}
-            >
-              設定しない
-            </button>
-            <div className="h-px bg-border my-1" />
-            {candidates.map((f) => (
-              <button
-                key={f}
-                type="button"
-                onClick={() => handleSelectPredecessor(f)}
-                className={cn(
-                  "text-left text-xs py-2 px-3 rounded-md transition-colors",
-                  "hover:bg-primary/10 hover:text-primary",
-                  f === currentPredecessor &&
-                    "bg-primary/15 text-primary font-medium",
-                )}
-              >
-                {f}
-              </button>
-            ))}
-          </div>
+          <Command>
+            <CommandInput placeholder="ファイル名で絞り込み..." />
+            <CommandList>
+              <CommandEmpty>候補がありません</CommandEmpty>
+              {/* クリア選択肢は検索対象外として常に表示 */}
+              <CommandGroup>
+                <CommandItem
+                  value="__none__"
+                  keywords={[]}
+                  onSelect={() => handleSelectPredecessor(null)}
+                  className={cn(
+                    "text-muted-foreground",
+                    !currentPredecessor && "font-medium text-foreground",
+                  )}
+                >
+                  設定しない
+                </CommandItem>
+              </CommandGroup>
+              <CommandSeparator />
+              <CommandGroup>
+                {candidates.map((f) => (
+                  <CommandItem
+                    key={f}
+                    value={f}
+                    onSelect={() => handleSelectPredecessor(f)}
+                    className={cn(
+                      f === currentPredecessor && "font-medium text-primary",
+                    )}
+                  >
+                    {f}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
         </DialogContent>
       </Dialog>
     </div>

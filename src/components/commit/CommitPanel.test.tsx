@@ -127,8 +127,11 @@ describe("CommitPanel — 引き継ぎ元設定", () => {
       screen.getByRole("button", { name: "201_AA.pdf の引き継ぎ元を設定" }),
     );
     const dialog = screen.getByRole("dialog");
-    expect(within(dialog).queryByText("201_AA.pdf")).not.toBeInTheDocument();
-    expect(within(dialog).getByText("101_AA.pdf")).toBeInTheDocument();
+    // dialog ヘッダーに対象ファイル名が表示されるため、選択肢（role=option）に絞って確認
+    const options = within(dialog).queryAllByRole("option");
+    const optionTexts = options.map((el) => el.textContent?.trim());
+    expect(optionTexts).not.toContain("201_AA.pdf");
+    expect(optionTexts).toContain("101_AA.pdf");
   });
 
   it("すでに他のファイルで選択済みの predecessor は候補から除外される", async () => {
