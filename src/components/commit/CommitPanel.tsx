@@ -55,14 +55,28 @@ export function CommitPanel({
     );
   }
 
-  function handleSelectPredecessor(predecessor: string) {
+  function handleSelectPredecessor(predecessor: string | null) {
     if (!dialogOpenFor) return;
-    setPredecessors((prev) => new Map(prev).set(dialogOpenFor, predecessor));
+    setPredecessors((prev) => {
+      const next = new Map(prev);
+      if (predecessor === null) {
+        next.delete(dialogOpenFor);
+      } else {
+        next.set(dialogOpenFor, predecessor);
+      }
+      return next;
+    });
     setDialogOpenFor(null);
   }
 
+  // 現在開いているファイルの選択済み predecessor（他ファイルの除外対象だが自身は表示する）
+  const currentPredecessor = dialogOpenFor
+    ? predecessors.get(dialogOpenFor)
+    : undefined;
   const candidates = headFiles.filter(
-    (f) => f !== dialogOpenFor && !usedPredecessors.has(f),
+    (f) =>
+      f !== dialogOpenFor &&
+      (!usedPredecessors.has(f) || f === currentPredecessor),
   );
 
   return (
@@ -147,13 +161,32 @@ export function CommitPanel({
           <DialogHeader>
             <DialogTitle>引き継ぎ元を選択</DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col">
+          <div className="flex flex-col gap-0.5 p-1">
+            {/* クリア選択肢 */}
+            <button
+              type="button"
+              onClick={() => handleSelectPredecessor(null)}
+              className={cn(
+                "text-left text-xs py-2 px-3 rounded-md transition-colors",
+                "text-muted-foreground hover:bg-primary/10 hover:text-foreground",
+                !currentPredecessor &&
+                  "bg-primary/10 text-foreground font-medium",
+              )}
+            >
+              設定しない
+            </button>
+            <div className="h-px bg-border my-1" />
             {candidates.map((f) => (
               <button
                 key={f}
                 type="button"
-                className="text-left text-xs py-2 px-3 hover:bg-accent hover:text-accent-foreground active:bg-accent/80 transition-colors rounded-sm"
                 onClick={() => handleSelectPredecessor(f)}
+                className={cn(
+                  "text-left text-xs py-2 px-3 rounded-md transition-colors",
+                  "hover:bg-primary/10 hover:text-primary",
+                  f === currentPredecessor &&
+                    "bg-primary/15 text-primary font-medium",
+                )}
               >
                 {f}
               </button>

@@ -54,6 +54,7 @@ describe("CommitPanel — 引き継ぎ元設定", () => {
     expect(dialog).toBeInTheDocument();
     expect(within(dialog).getByText("101_AA.pdf")).toBeInTheDocument();
     expect(within(dialog).getByText("101_BB.pdf")).toBeInTheDocument();
+    expect(within(dialog).getByText("設定しない")).toBeInTheDocument();
   });
 
   it("predecessor を選択するとアイコンボタンの title が更新される", async () => {
@@ -68,6 +69,31 @@ describe("CommitPanel — 引き継ぎ元設定", () => {
     expect(
       screen.getByRole("button", { name: "201_AA.pdf の引き継ぎ元を設定" }),
     ).toHaveAttribute("title", "引き継ぎ元: 101_AA.pdf");
+  });
+
+  it("「設定しない」を選択すると predecessor がクリアされる", async () => {
+    const user = userEvent.setup();
+    renderPanel(["201_AA.pdf"]);
+    // まず predecessor を設定
+    await user.click(
+      screen.getByRole("button", { name: "201_AA.pdf の引き継ぎ元を設定" }),
+    );
+    await user.click(
+      within(screen.getByRole("dialog")).getByText("101_AA.pdf"),
+    );
+    expect(
+      screen.getByRole("button", { name: "201_AA.pdf の引き継ぎ元を設定" }),
+    ).toHaveAttribute("title", "引き継ぎ元: 101_AA.pdf");
+    // クリア
+    await user.click(
+      screen.getByRole("button", { name: "201_AA.pdf の引き継ぎ元を設定" }),
+    );
+    await user.click(
+      within(screen.getByRole("dialog")).getByText("設定しない"),
+    );
+    expect(
+      screen.getByRole("button", { name: "201_AA.pdf の引き継ぎ元を設定" }),
+    ).toHaveAttribute("title", "引き継ぎ元を設定");
   });
 
   it("コミット時に設定した predecessors が渡される", async () => {
