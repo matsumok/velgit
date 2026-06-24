@@ -24,6 +24,7 @@ impl DbPool {
             .await?;
         sqlx::migrate!("./migrations")
             .set_locking(false)
+            .set_ignore_missing(true)
             .run(&pool)
             .await?;
         Ok(DbPool(pool))
