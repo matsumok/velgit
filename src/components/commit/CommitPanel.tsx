@@ -81,7 +81,7 @@ export function CommitPanel({
                 key={filename}
                 className="border-0 hover:bg-transparent"
               >
-                <TableCell className="py-1.5 w-7 pr-0">
+                <TableCell className="py-1 w-7 pr-0 pl-3">
                   <Button
                     variant="ghost"
                     size="icon-sm"
@@ -92,13 +92,20 @@ export function CommitPanel({
                         : "引き継ぎ元を設定"
                     }
                     onClick={() => setDialogOpenFor(filename)}
-                    className={cn(predecessor && "text-primary")}
+                    className={cn("h-5 w-5", predecessor && "text-primary")}
                   >
-                    <GitPullRequestIcon size={14} />
+                    <GitPullRequestIcon size={12} />
                   </Button>
                 </TableCell>
-                <TableCell className="py-1.5 text-xs truncate max-w-0">
-                  {filename}
+                <TableCell className="py-1 text-xs pr-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="truncate flex-1">{filename}</span>
+                    {predecessor && (
+                      <span className="text-muted-foreground shrink-0 truncate max-w-28">
+                        ← {predecessor}
+                      </span>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             );
@@ -144,7 +151,7 @@ export function CommitPanel({
               {candidates.map((f) => (
                 <TableRow
                   key={f}
-                  className="cursor-pointer"
+                  className="cursor-pointer hover:bg-accent hover:text-accent-foreground"
                   onClick={() => handleSelectPredecessor(f)}
                 >
                   <TableCell className="py-1.5 text-xs">{f}</TableCell>
