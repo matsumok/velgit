@@ -259,10 +259,10 @@ export function CommitHistoryPanel() {
           // on mode: 履歴選択中は青ハイライト（クリック不可）、サイズを履歴ボタンに合わせる
           <div
             className={cn(
-              "w-full px-3 py-2",
+              "px-3 py-2",
               selectedHistoryOid !== null &&
                 !diffKnownMeaningless &&
-                "ring-2 ring-inset ring-blue-400 dark:ring-blue-500",
+                "mx-2 rounded-sm ring-2 ring-inset ring-blue-400 dark:ring-blue-500",
               selectedHistoryOid !== null && diffKnownMeaningless && "bg-muted",
             )}
           >
@@ -325,7 +325,12 @@ export function CommitHistoryPanel() {
               const isFaded =
                 prevChangeType === "none" || prevChangeType === "minor";
               return (
-                <li key={commit.oid}>
+                <li
+                  key={commit.oid}
+                  className={cn(
+                    selected && isDiffMode && !diffKnownMeaningless && "px-2",
+                  )}
+                >
                   <Button
                     variant="ghost"
                     onClick={() => setSelectedHistoryOid(commit.oid)}
@@ -337,7 +342,7 @@ export function CommitHistoryPanel() {
                       selected &&
                         isDiffMode &&
                         !diffKnownMeaningless &&
-                        "ring-2 ring-inset ring-red-400 dark:ring-red-500",
+                        "rounded-sm ring-2 ring-inset ring-red-400 dark:ring-red-500",
                       isFaded && "opacity-40",
                     )}
                   >
