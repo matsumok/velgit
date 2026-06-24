@@ -42,12 +42,14 @@ describe("resolveDrawingStatuses", () => {
     ]);
   });
 
-  it("deleted の図面はリストから除外される", () => {
+  it("deleted の図面は deleted ステータスで表示される", () => {
     const result = resolveDrawingStatuses(
       [drawing("A-001.pdf")],
       [pending("A-001.pdf", "deleted")],
     );
-    expect(result).toEqual([]);
+    expect(result).toEqual([
+      { filename: "A-001.pdf", status: "deleted", isMinor: false },
+    ]);
   });
 
   it("new ファイルは isMinor false", () => {
@@ -81,6 +83,7 @@ describe("resolveDrawingStatuses", () => {
     expect(result).toEqual([
       { filename: "A.pdf", status: "unchanged", isMinor: false },
       { filename: "B.pdf", status: "modified", isMinor: true },
+      { filename: "C.pdf", status: "deleted", isMinor: false },
       { filename: "D.pdf", status: "new", isMinor: false },
     ]);
   });

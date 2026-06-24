@@ -29,6 +29,7 @@ function getStatusColor(
   isMinor: boolean,
 ): string {
   if (status === "new") return "text-green-600";
+  if (status === "deleted") return "text-red-500 line-through";
   if (status === "modified")
     return isMinor ? "text-sky-500" : "text-orange-500";
   return "";

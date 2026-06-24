@@ -1,7 +1,7 @@
 import type { Drawing } from "../api/drawings";
 import type { PendingChange } from "../api/pendingChanges";
 
-export type DrawingStatus = "new" | "modified" | "unchanged";
+export type DrawingStatus = "new" | "modified" | "unchanged" | "deleted";
 
 export interface DrawingWithStatus {
   filename: string;
@@ -37,7 +37,15 @@ export function resolveDrawingStatuses(
       isMinor: false,
     }));
 
-  return [...fromDrawings, ...newFiles].sort((a, b) =>
+  const deletedFiles: DrawingWithStatus[] = pendingChanges
+    .filter((c) => c.status === "deleted")
+    .map((c) => ({
+      filename: c.filename,
+      status: "deleted" as const,
+      isMinor: false,
+    }));
+
+  return [...fromDrawings, ...newFiles, ...deletedFiles].sort((a, b) =>
     a.filename.localeCompare(b.filename),
   );
 }
