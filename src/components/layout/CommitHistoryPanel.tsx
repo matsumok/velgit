@@ -157,13 +157,6 @@ export function CommitHistoryPanel() {
     ? wcPreviewLoading
     : previewLoading;
 
-  // off mode で履歴コミット選択時のプレビュー
-  const { data: historyPreviewUrl, isLoading: historyPreviewLoading } =
-    useDrawingPreview(
-      !isDiffMode && selectedHistoryOid !== null ? selectedDrawing : null,
-      !isDiffMode && selectedHistoryOid !== null ? selectedHistoryOid : null,
-    );
-
   const {
     data: diffResult,
     isLoading: diffLoading,
@@ -173,6 +166,18 @@ export function CommitHistoryPanel() {
     selectedHistoryOid,
     isDiffMode && selectedHistoryOid !== null ? diffBaseOid : null,
   );
+
+  // diff結果が「変更なし」と確定している状態（ロード中は false）
+  const diffKnownNone = !diffLoading && diffResult?.changeType === "none";
+
+  // off mode または diff結果が変更なしのとき履歴コミットのプレビューを取得
+  const needHistoryPreview =
+    (!isDiffMode || diffKnownNone) && selectedHistoryOid !== null;
+  const { data: historyPreviewUrl, isLoading: historyPreviewLoading } =
+    useDrawingPreview(
+      needHistoryPreview ? selectedDrawing : null,
+      needHistoryPreview ? selectedHistoryOid : null,
+    );
 
   const setBackgroundTask = useAppStore((s) => s.setBackgroundTask);
   useEffect(() => {
@@ -246,7 +251,10 @@ export function CommitHistoryPanel() {
           <div
             className={cn(
               "w-full px-3 py-2",
-              selectedHistoryOid !== null && "bg-blue-100 dark:bg-blue-950",
+              selectedHistoryOid !== null &&
+                !diffKnownNone &&
+                "bg-blue-100 dark:bg-blue-950",
+              selectedHistoryOid !== null && diffKnownNone && "bg-muted",
             )}
           >
             {hasUncommitted ? (
@@ -314,8 +322,11 @@ export function CommitHistoryPanel() {
                     onClick={() => setSelectedHistoryOid(commit.oid)}
                     className={cn(
                       "w-full justify-start h-auto px-3 py-2 font-normal",
-                      selected && !isDiffMode && "bg-muted",
-                      selected && isDiffMode && "bg-red-100 dark:bg-red-950",
+                      selected && (!isDiffMode || diffKnownNone) && "bg-muted",
+                      selected &&
+                        isDiffMode &&
+                        !diffKnownNone &&
+                        "bg-red-100 dark:bg-red-950",
                       isFaded && "opacity-40",
                     )}
                   >
@@ -334,7 +345,7 @@ export function CommitHistoryPanel() {
 
       {/* 下部: diff / 履歴プレビュー / 現在プレビュー */}
       <div className="flex-1 min-h-0 overflow-y-auto border-t">
-        {isDiffMode && selectedHistoryOid !== null ? (
+        {isDiffMode && selectedHistoryOid !== null && !diffKnownNone ? (
           <div className="p-2">
             {diffResult && (
               <p className="text-xs text-muted-foreground mb-2 px-1">
@@ -354,7 +365,7 @@ export function CommitHistoryPanel() {
               }
             />
           </div>
-        ) : !isDiffMode && selectedHistoryOid !== null ? (
+        ) : (!isDiffMode || diffKnownNone) && selectedHistoryOid !== null ? (
           historyPreviewLoading ? (
             <div className="flex h-20 items-center justify-center">
               <Spinner />
