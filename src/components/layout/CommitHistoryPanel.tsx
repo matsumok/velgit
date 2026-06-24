@@ -29,17 +29,24 @@ function CommitRowContent({
   message,
   author,
   timestamp,
+  sourceFilename,
 }: {
   message: string;
   author: string;
   timestamp: number;
+  sourceFilename?: string | null;
 }) {
   return (
-    <div className="flex flex-col gap-1 pl-2">
+    <div className="flex flex-col gap-0.5 pl-2">
       <p className="text-left truncate text-xs font-medium">{message}</p>
-      <p className="text-xs text-muted-foreground mt-0.5">
+      <p className="text-xs text-muted-foreground">
         {author} · {formatDate(timestamp)}
       </p>
+      {sourceFilename && (
+        <p className="text-xs text-muted-foreground/60 truncate">
+          ← {sourceFilename}
+        </p>
+      )}
     </div>
   );
 }
@@ -338,6 +345,7 @@ export function CommitHistoryPanel() {
                       message={commit.message}
                       author={commit.author}
                       timestamp={commit.timestamp}
+                      sourceFilename={commit.sourceFilename}
                     />
                   </Button>
                 </li>

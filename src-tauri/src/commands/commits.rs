@@ -106,6 +106,12 @@ pub async fn commit_changes(
                 let path = path_bg.clone();
                 let oid_str = oid_bg.clone();
 
+                // 新規ファイルかつ predecessor あり → predecessor の blob を「旧」として使う
+                let predecessor_name = DbPool(pool.clone())
+                    .get_predecessor(&filename)
+                    .await
+                    .unwrap_or(None);
+
                 // git2 は !Send のためブロッキングスレッドで blob データを取得
                 let blobs = tokio::task::spawn_blocking({
                     let filename = filename.clone();
@@ -119,7 +125,10 @@ pub async fn commit_changes(
                         let pdf_new = repo.find_blob(entry.id()).ok()?.content().to_vec();
                         let old_info = commit.parent(0).ok().and_then(|parent| {
                             let tree = parent.tree().ok()?;
-                            let entry = tree.get_name(&filename)?;
+                            // 同名 → 存在しなければ predecessor 名でフォールバック
+                            let entry = tree.get_name(&filename).or_else(|| {
+                                predecessor_name.as_deref().and_then(|pred| tree.get_name(pred))
+                            })?;
                             let blob_oid_old = entry.id().to_string();
                             let pdf_old = repo.find_blob(entry.id()).ok()?.content().to_vec();
                             Some((blob_oid_old, pdf_old))

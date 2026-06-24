@@ -10,6 +10,7 @@ export interface CommitEntry {
   timestamp: number;
   changeType: string | null;
   blobOid: string | null;
+  sourceFilename: string | null;
 }
 
 export function useGetCommitHistory() {
