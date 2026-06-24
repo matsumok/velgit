@@ -207,12 +207,25 @@ pub async fn get_commit_history(
         repository::commit_history(&path, &filename).map_err(|e| e.to_string())?
     };
 
+    // predecessor 由来のエントリは source_filename のファイル名で change_type を引く
     let change_type_map = if let Some(pool) = pool {
-        let oids: Vec<String> = entries.iter().map(|e| e.oid.clone()).collect();
-        DbPool(pool)
-            .get_change_types_for_file(&oids, &filename)
-            .await
-            .unwrap_or_default()
+        let db = DbPool(pool);
+        let mut groups: std::collections::HashMap<String, Vec<String>> =
+            std::collections::HashMap::new();
+        for e in &entries {
+            let fname = e.source_filename.as_deref().unwrap_or(&filename).to_string();
+            groups.entry(fname).or_default().push(e.oid.clone());
+        }
+        let mut acc: std::collections::HashMap<String, String> =
+            std::collections::HashMap::new();
+        for (fname, oids) in groups {
+            let partial = db
+                .get_change_types_for_file(&oids, &fname)
+                .await
+                .unwrap_or_default();
+            acc.extend(partial);
+        }
+        acc
     } else {
         std::collections::HashMap::new()
     };
