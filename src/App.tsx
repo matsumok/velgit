@@ -73,7 +73,9 @@ function CenterPane() {
       ? "commit"
       : appMode.mode === "head-idle"
         ? "release"
-        : "browse";
+        : appMode.mode === "release"
+          ? "view"
+          : "browse";
 
   const rows = useMemo(() => {
     if (appMode.mode === "release") {

@@ -19,7 +19,7 @@ import {
 
 export interface DrawingTableProps {
   rows: DrawingWithStatus[];
-  mode: "commit" | "release" | "browse";
+  mode: "commit" | "release" | "browse" | "view";
   onPreviewChange: (filename: string | null) => void;
   onSelectionChange: (filenames: string[]) => void;
 }
@@ -36,6 +36,7 @@ function getStatusColor(
 }
 
 function canSelect(status: DrawingWithStatus["status"], mode: string): boolean {
+  if (mode === "view") return false;
   if (mode === "browse") return true;
   return mode === "release" || status !== "unchanged";
 }
