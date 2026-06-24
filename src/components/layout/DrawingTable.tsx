@@ -20,7 +20,7 @@ import {
 export interface DrawingTableProps {
   rows: DrawingWithStatus[];
   mode: "commit" | "release" | "browse";
-  onPreviewChange: (filename: string) => void;
+  onPreviewChange: (filename: string | null) => void;
   onSelectionChange: (filenames: string[]) => void;
 }
 
@@ -50,6 +50,12 @@ export function DrawingTable({
     () => Object.fromEntries(rows.map((r) => [r.filename, true])),
   );
 
+  const onPreviewChangeRef = useRef(onPreviewChange);
+  onPreviewChangeRef.current = onPreviewChange;
+
+  const activeRowRef = useRef(activeRow);
+  activeRowRef.current = activeRow;
+
   // Reset to all-selected when row list changes (after commit / release).
   // Skip the first run — useState initializer already set the correct initial state.
   const isMountedRef = useRef(false);
@@ -59,7 +65,11 @@ export function DrawingTable({
       return;
     }
     setRowSelection(Object.fromEntries(rows.map((r) => [r.filename, true])));
-    setActiveRow(null);
+    const prev = activeRowRef.current;
+    if (prev === null || !rows.some((r) => r.filename === prev)) {
+      setActiveRow(null);
+      onPreviewChangeRef.current(null);
+    }
   }, [rows]);
 
   const columns = useMemo<ColumnDef<DrawingWithStatus>[]>(
@@ -130,7 +140,13 @@ export function DrawingTable({
   }, [rowSelection, rows, mode]);
 
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div
+      className="flex-1 overflow-y-auto"
+      onClick={() => {
+        setActiveRow(null);
+        onPreviewChangeRef.current(null);
+      }}
+    >
       <p className="text-sm px-4 pt-3 pb-1">図面一覧</p>
       <Table>
         <TableHeader>
@@ -170,7 +186,8 @@ export function DrawingTable({
                 key={row.id}
                 data-state={activeRow === row.id ? "selected" : undefined}
                 className="cursor-pointer"
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   setActiveRow(row.id);
                   onPreviewChange(row.id);
                 }}
