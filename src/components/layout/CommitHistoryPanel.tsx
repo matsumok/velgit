@@ -127,6 +127,11 @@ export function CommitHistoryPanel() {
     ? null
     : (topItem?.oid ?? resolvedPreviewOid);
 
+  // topItem が引き継ぎコミット（changeType === "none"）の場合、
+  // historyCommits[0] との比較は同一内容になるため historyCommits[1] をデフォルト選択にする
+  const defaultHistoryIdx =
+    topItem?.changeType === "none" && historyCommits.length > 1 ? 1 : 0;
+
   // diff mode ON 時: selectedHistoryOid が null またはリストにない場合は最新を自動選択
   // ファイル切り替え・コミット切り替え・トグル ON のいずれでも機能する
   useEffect(() => {
@@ -135,15 +140,15 @@ export function CommitHistoryPanel() {
       selectedHistoryOid !== null &&
       historyCommits.some((c) => c.oid === selectedHistoryOid);
     if (!valid) {
-      setSelectedHistoryOid(historyCommits[0].oid);
+      setSelectedHistoryOid(historyCommits[defaultHistoryIdx].oid);
     }
-  }, [isDiffMode, selectedHistoryOid, historyCommits]);
+  }, [isDiffMode, selectedHistoryOid, historyCommits, defaultHistoryIdx]);
 
   const handleDiffModeToggle = (checked: boolean) => {
     setIsDiffMode(checked);
     // effect が自動選択するが、即座にレンダリングに反映するため先行設定する
     if (checked && historyCommits.length > 0) {
-      setSelectedHistoryOid(historyCommits[0].oid);
+      setSelectedHistoryOid(historyCommits[defaultHistoryIdx].oid);
     }
   };
 
