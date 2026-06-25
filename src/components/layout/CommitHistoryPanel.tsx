@@ -30,23 +30,89 @@ function CommitRowContent({
   author,
   timestamp,
   sourceFilename,
+  diffRole,
 }: {
   message: string;
   author: string;
   timestamp: number;
   sourceFilename?: string | null;
+  diffRole?: "before" | "after";
 }) {
   return (
-    <div className="flex flex-col gap-0.5 pl-2">
-      <p className="text-left truncate text-xs font-medium">{message}</p>
-      <p className="text-xs text-muted-foreground">
+    <div className="flex flex-col gap-0.5 pl-2 min-w-0 flex-1">
+      <div className="flex items-center gap-1.5">
+        <p className="text-left truncate text-xs font-medium flex-1 min-w-0">{message}</p>
+        <span
+          className={cn(
+            "shrink-0 px-1.5 py-0.5 rounded text-xs font-medium",
+            diffRole === "after"
+              ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
+              : diffRole === "before"
+                ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                : "invisible",
+          )}
+        >
+          {diffRole === "after" ? "変更後" : "変更前"}
+        </span>
+      </div>
+      <p className="text-left text-xs text-muted-foreground">
         {author} · {formatDate(timestamp)}
       </p>
       {sourceFilename && (
-        <p className="text-xs text-muted-foreground/60 truncate">
+        <p className="text-left text-xs text-muted-foreground/60 truncate">
           ← {sourceFilename}
         </p>
       )}
+    </div>
+  );
+}
+
+function CommitItem({
+  message,
+  author,
+  timestamp,
+  sourceFilename,
+  diffRole,
+  muted,
+  faded,
+  onClick,
+}: {
+  message: string;
+  author: string;
+  timestamp: number;
+  sourceFilename?: string | null;
+  diffRole?: "before" | "after";
+  muted?: boolean;
+  faded?: boolean;
+  onClick?: () => void;
+}) {
+  const inner = (
+    <CommitRowContent
+      message={message}
+      author={author}
+      timestamp={timestamp}
+      sourceFilename={sourceFilename}
+      diffRole={diffRole}
+    />
+  );
+  if (onClick) {
+    return (
+      <Button
+        variant="ghost"
+        onClick={onClick}
+        className={cn(
+          "w-full justify-start h-auto px-3 py-2 font-normal",
+          muted && "bg-muted",
+          faded && "opacity-40",
+        )}
+      >
+        {inner}
+      </Button>
+    );
+  }
+  return (
+    <div className={cn("px-3 py-2", muted && "bg-muted", faded && "opacity-40")}>
+      {inner}
     </div>
   );
 }
@@ -127,8 +193,8 @@ export function CommitHistoryPanel() {
     ? null
     : (topItem?.oid ?? resolvedPreviewOid);
 
-  // topItem が引き継ぎコミット（changeType === "none"）の場合、
-  // historyCommits[0] との比較は同一内容になるため historyCommits[1] をデフォルト選択にする
+  // 最新コミットが視覚的変更なし（none）の場合、historyCommits[0] との diff は無意味なため
+  // historyCommits[1] をデフォルト選択にする
   const defaultHistoryIdx =
     topItem?.changeType === "none" && historyCommits.length > 1 ? 1 : 0;
 
@@ -261,46 +327,63 @@ export function CommitHistoryPanel() {
             <Spinner className="size-3" />
           </div>
         ) : !hasUncommitted && !topItem ? null : isDiffMode ? (
-          // on mode: 履歴選択中は青ハイライト（クリック不可）、サイズを履歴ボタンに合わせる
-          <div
-            className={cn(
-              "px-3 py-2",
-              selectedHistoryOid !== null &&
-                !diffKnownMeaningless &&
-                "mx-2 rounded-sm ring-2 ring-inset ring-blue-400 dark:ring-blue-500",
-              selectedHistoryOid !== null && diffKnownMeaningless && "bg-muted",
-            )}
-          >
-            {hasUncommitted ? (
-              <p className="text-xs font-medium pl-2">未コミット</p>
-            ) : topItem ? (
-              <CommitRowContent
-                message={topItem.message}
-                author={topItem.author}
-                timestamp={topItem.timestamp}
-              />
-            ) : null}
-          </div>
+          // on mode: クリック不可
+          hasUncommitted ? (
+            <div
+              className={cn(
+                "px-3 py-2",
+                selectedHistoryOid !== null && diffKnownMeaningless && "bg-muted",
+              )}
+            >
+              <div className="flex items-center gap-1.5 pl-2">
+                <p className="text-xs font-medium flex-1 min-w-0">未コミット</p>
+                <span
+                  className={cn(
+                    "shrink-0 px-1.5 py-0.5 rounded text-xs font-medium",
+                    selectedHistoryOid !== null && !diffKnownMeaningless
+                      ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
+                      : "invisible",
+                  )}
+                >
+                  変更後
+                </span>
+              </div>
+            </div>
+          ) : topItem ? (
+            <CommitItem
+              message={topItem.message}
+              author={topItem.author}
+              timestamp={topItem.timestamp}
+              muted={selectedHistoryOid !== null && diffKnownMeaningless}
+              diffRole={
+                selectedHistoryOid !== null && !diffKnownMeaningless
+                  ? "after"
+                  : undefined
+              }
+            />
+          ) : null
         ) : (
           // off mode: クリックで現在プレビューに戻る
-          <Button
-            variant="ghost"
-            onClick={() => setSelectedHistoryOid(null)}
-            className={cn(
-              "w-full justify-start h-auto px-3 py-2 font-normal",
-              selectedHistoryOid === null && "bg-muted",
-            )}
-          >
-            {hasUncommitted ? (
+          hasUncommitted ? (
+            <Button
+              variant="ghost"
+              onClick={() => setSelectedHistoryOid(null)}
+              className={cn(
+                "w-full justify-start h-auto px-3 py-2 font-normal",
+                selectedHistoryOid === null && "bg-muted",
+              )}
+            >
               <p className="text-xs font-medium pl-2">未コミット</p>
-            ) : topItem ? (
-              <CommitRowContent
-                message={topItem.message}
-                author={topItem.author}
-                timestamp={topItem.timestamp}
-              />
-            ) : null}
-          </Button>
+            </Button>
+          ) : topItem ? (
+            <CommitItem
+              message={topItem.message}
+              author={topItem.author}
+              timestamp={topItem.timestamp}
+              muted={selectedHistoryOid === null}
+              onClick={() => setSelectedHistoryOid(null)}
+            />
+          ) : null
         )}
       </div>
 
@@ -330,34 +413,21 @@ export function CommitHistoryPanel() {
               const isFaded =
                 prevChangeType === "none" || prevChangeType === "minor";
               return (
-                <li
-                  key={commit.oid}
-                  className={cn(
-                    selected && isDiffMode && !diffKnownMeaningless && "px-2",
-                  )}
-                >
-                  <Button
-                    variant="ghost"
+                <li key={commit.oid}>
+                  <CommitItem
+                    message={commit.message}
+                    author={commit.author}
+                    timestamp={commit.timestamp}
+                    sourceFilename={commit.sourceFilename}
+                    diffRole={
+                      selected && isDiffMode && !diffKnownMeaningless
+                        ? "before"
+                        : undefined
+                    }
+                    muted={selected && (!isDiffMode || diffKnownMeaningless)}
+                    faded={isFaded}
                     onClick={() => setSelectedHistoryOid(commit.oid)}
-                    className={cn(
-                      "w-full justify-start h-auto px-3 py-2 font-normal",
-                      selected &&
-                        (!isDiffMode || diffKnownMeaningless) &&
-                        "bg-muted",
-                      selected &&
-                        isDiffMode &&
-                        !diffKnownMeaningless &&
-                        "rounded-sm ring-2 ring-inset ring-red-400 dark:ring-red-500",
-                      isFaded && "opacity-40",
-                    )}
-                  >
-                    <CommitRowContent
-                      message={commit.message}
-                      author={commit.author}
-                      timestamp={commit.timestamp}
-                      sourceFilename={commit.sourceFilename}
-                    />
-                  </Button>
+                  />
                 </li>
               );
             })}

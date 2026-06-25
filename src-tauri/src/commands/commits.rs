@@ -4,7 +4,7 @@ use crate::{
     db::{CommitFileRecord, DbPool},
     diff,
     image_cache,
-    repository::{self},
+    repository::{self, ChangeKind},
     AppState,
 };
 
@@ -28,6 +28,11 @@ pub async fn commit_changes(
     let pending = repository::pending_changes(&path).map_err(|e| e.to_string())?;
     let pending_map: std::collections::HashMap<_, _> =
         pending.iter().map(|c| (c.filename.as_str(), c)).collect();
+    let new_files: std::collections::HashSet<String> = pending
+        .iter()
+        .filter(|c| c.status == ChangeKind::New)
+        .map(|c| c.filename.clone())
+        .collect();
 
     let oid = repository::commit(&path, &message, &created_by, &included_files)
         .map_err(|e| e.to_string())?;
@@ -90,6 +95,7 @@ pub async fn commit_changes(
         let oid_bg = oid_str.clone();
         let files_bg = included_files.clone();
         let app_handle_bg = app_handle.clone();
+        let new_files_bg = new_files;
         tauri::async_runtime::spawn(async move {
             use tauri::Emitter;
             let total = files_bg.len();
@@ -106,11 +112,15 @@ pub async fn commit_changes(
                 let path = path_bg.clone();
                 let oid_str = oid_bg.clone();
 
-                // 新規ファイルかつ predecessor あり → predecessor の blob を「旧」として使う
-                let predecessor_name = DbPool(pool.clone())
-                    .get_predecessor(&filename)
-                    .await
-                    .unwrap_or(None);
+                // 新規追加ファイルのみ predecessor を引く（修正・削除ファイルは不要）
+                let predecessor_name = if new_files_bg.contains(&filename) {
+                    DbPool(pool.clone())
+                        .get_predecessor(&filename)
+                        .await
+                        .unwrap_or(None)
+                } else {
+                    None
+                };
 
                 // git2 は !Send のためブロッキングスレッドで blob データを取得
                 let blobs = tokio::task::spawn_blocking({
@@ -180,7 +190,6 @@ pub async fn commit_changes(
                     _ => "meaningful".to_string(),
                 };
 
-                eprintln!("[classify] {filename} => {change_type}");
                 let db = DbPool(pool.clone());
                 if let Err(e) = db
                     .update_commit_file_change_type(&oid_bg, &filename, &change_type)

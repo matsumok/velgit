@@ -1,5 +1,4 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { listen } from "@tauri-apps/api/event";
 import { useEffect, useMemo, useState } from "react";
 import { useGetDrawings } from "./api/drawings";
 import { useGetPendingChanges } from "./api/pendingChanges";
@@ -22,6 +21,7 @@ import { SnapshotDetailPanel } from "./components/SnapshotDetailPanel";
 import { UsernameGate } from "./components/UsernameGate";
 import { Button } from "./components/ui/button";
 import { useAppMode } from "./hooks/useAppMode";
+import { useTauriEvent } from "./hooks/useTauriEvent";
 import { resolveDrawingStatuses } from "./lib/drawingStatus";
 import { useAppStore } from "./store/useAppStore";
 
@@ -173,32 +173,22 @@ function DrawingDetail() {
 function usePdfChangedListener() {
   const queryClient = useQueryClient();
   const selectedProject = useAppStore((s) => s.selectedProject);
-  useEffect(() => {
-    const unlisten = listen("pdf-changed", () => {
-      if (!selectedProject) return;
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.pendingChanges(selectedProject),
-      });
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.drawings(selectedProject),
-      });
+  useTauriEvent("pdf-changed", () => {
+    if (!selectedProject) return;
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.pendingChanges(selectedProject),
     });
-    return () => {
-      unlisten.then((fn) => fn());
-    };
-  }, [queryClient, selectedProject]);
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.drawings(selectedProject),
+    });
+  });
 }
 
 function useWatcherState() {
   const [isPolling, setIsPolling] = useState(false);
-  useEffect(() => {
-    const unlisten = listen<string>("watcher-state-changed", (e) => {
-      setIsPolling(e.payload === "pollingFallback");
-    });
-    return () => {
-      unlisten.then((fn) => fn());
-    };
-  }, []);
+  useTauriEvent<string>("watcher-state-changed", (payload) => {
+    setIsPolling(payload === "pollingFallback");
+  });
   return isPolling;
 }
 
@@ -213,62 +203,45 @@ function useCommitCreatedListener() {
   const queryClient = useQueryClient();
   const selectedProject = useAppStore((s) => s.selectedProject);
   const setBackgroundTask = useAppStore((s) => s.setBackgroundTask);
-  useEffect(() => {
-    const unlisten = listen("commit-created", () => {
-      setBackgroundTask("画像処理中...");
-      if (!selectedProject) return;
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.pendingChanges(selectedProject),
-      });
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.drawings(selectedProject),
-      });
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.projectCommits(selectedProject),
-      });
-      queryClient.invalidateQueries({
-        queryKey: queryKeys.commitHistoryBase(selectedProject),
-      });
+  useTauriEvent("commit-created", () => {
+    setBackgroundTask("画像処理中...");
+    if (!selectedProject) return;
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.pendingChanges(selectedProject),
     });
-    return () => {
-      unlisten.then((fn) => fn());
-    };
-  }, [queryClient, selectedProject, setBackgroundTask]);
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.drawings(selectedProject),
+    });
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.projectCommits(selectedProject),
+    });
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.commitHistoryBase(selectedProject),
+    });
+  });
 }
 
 function useCommitClassifiedListener() {
   const queryClient = useQueryClient();
   const selectedProject = useAppStore((s) => s.selectedProject);
   const setBackgroundTask = useAppStore((s) => s.setBackgroundTask);
-  useEffect(() => {
-    const unlisten = listen("commit-classified", () => {
-      setBackgroundTask(null);
-      if (!selectedProject) return;
-      queryClient.invalidateQueries({
-        queryKey: ["changes_at_commit", selectedProject],
-      });
+  useTauriEvent("commit-classified", () => {
+    setBackgroundTask(null);
+    if (!selectedProject) return;
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.changesAtCommitBase(selectedProject),
     });
-    return () => {
-      unlisten.then((fn) => fn());
-    };
-  }, [queryClient, selectedProject, setBackgroundTask]);
+  });
 }
 
 function useClassifyProgressListener() {
   const setBackgroundTask = useAppStore((s) => s.setBackgroundTask);
-  useEffect(() => {
-    const unlisten = listen<{
-      current: number;
-      total: number;
-      filename: string;
-    }>("commit-classify-progress", (e) => {
-      const { current, total, filename } = e.payload;
+  useTauriEvent<{ current: number; total: number; filename: string }>(
+    "commit-classify-progress",
+    ({ current, total, filename }) => {
       setBackgroundTask(`画像処理中 (${current}/${total}): ${filename}`);
-    });
-    return () => {
-      unlisten.then((fn) => fn());
-    };
-  }, [setBackgroundTask]);
+    },
+  );
 }
 
 function App() {

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use crate::{
-    repository::{CommitEntry, InitError},
+    repository::{self, CommitEntry, InitError},
     AppState,
 };
 
@@ -185,6 +185,20 @@ pub fn extract_pdf_blob(
     filename: &str,
 ) -> Result<Vec<u8>, String> {
     extract_blob_with_oid(repo, oid_str, filename).map(|(_, pdf)| pdf)
+}
+
+pub async fn resolve_blob_opt(
+    path: &std::path::Path,
+    oid: &str,
+    filename: &str,
+    pool: Option<&sqlx::SqlitePool>,
+) -> Result<(String, Vec<u8>), String> {
+    if let Some(pool) = pool {
+        repository::resolve_blob_with_lineage(path, oid, filename, pool).await
+    } else {
+        let repo = git2::Repository::open(path).map_err(|e| e.to_string())?;
+        extract_blob_with_oid(&repo, oid, filename)
+    }
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────────────

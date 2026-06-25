@@ -46,7 +46,7 @@ impl DiffAlgorithm for ThresholdDiff {
                     any_meaningful.store(true, Relaxed);
                     let old_lum = (old_px[0] as u32 * 299 + old_px[1] as u32 * 587 + old_px[2] as u32 * 114) / 1000;
                     let new_lum = (new_px[0] as u32 * 299 + new_px[1] as u32 * 587 + new_px[2] as u32 * 114) / 1000;
-                    if old_lum > new_lum { [0u8, 0, 255, 255] } else { [255u8, 0, 0, 255] }
+                    if old_lum > new_lum { [255u8, 0, 0, 255] } else { [0u8, 0, 255, 255] }
                 } else {
                     if delta > 0 {
                         any_changed.store(true, Relaxed);
@@ -102,27 +102,27 @@ mod tests {
     }
 
     #[test]
-    fn black_to_white_returns_meaningful_with_red_pixels() {
+    fn black_to_white_returns_meaningful_with_blue_pixels() {
         let old = solid(4, 4, 0, 0, 0);
         let new = solid(4, 4, 255, 255, 255);
         let result = diff(&old, &new);
         assert_eq!(result.change_type, ChangeType::Meaningful);
         let overlay = result.overlay.expect("overlay should be present");
         let px = overlay.get_pixel(0, 0);
-        assert_eq!(px[0], 255, "red channel should be 255 (red pixel)");
-        assert_eq!(px[2], 0,   "blue channel should be 0 (red pixel)");
+        assert_eq!(px[0], 0,   "red channel should be 0 (blue pixel)");
+        assert_eq!(px[2], 255, "blue channel should be 255 (blue pixel)");
     }
 
     #[test]
-    fn white_to_black_returns_meaningful_with_blue_pixels() {
+    fn white_to_black_returns_meaningful_with_red_pixels() {
         let old = solid(4, 4, 255, 255, 255);
         let new = solid(4, 4, 0, 0, 0);
         let result = diff(&old, &new);
         assert_eq!(result.change_type, ChangeType::Meaningful);
         let overlay = result.overlay.expect("overlay should be present");
         let px = overlay.get_pixel(0, 0);
-        assert_eq!(px[0], 0,   "red channel should be 0 (blue pixel)");
-        assert_eq!(px[2], 255, "blue channel should be 255 (blue pixel)");
+        assert_eq!(px[0], 255, "red channel should be 255 (red pixel)");
+        assert_eq!(px[2], 0,   "blue channel should be 0 (red pixel)");
     }
 
     #[test]

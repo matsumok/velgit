@@ -165,8 +165,14 @@ pub async fn resolve_blob_with_lineage(
 ) -> Result<(String, Vec<u8>), String> {
     let db = crate::db::DbPool(pool.clone());
     let mut current = filename.to_string();
+    let mut visited: std::collections::HashSet<String> = std::collections::HashSet::new();
 
     loop {
+        if !visited.insert(current.clone()) {
+            return Err(format!(
+                "{filename} の lineage にサイクルを検出しました（コミット {oid_str}）"
+            ));
+        }
         let path = repo_path.to_path_buf();
         let oid = oid_str.to_string();
         let name = current.clone();
@@ -199,8 +205,12 @@ pub async fn lineage_history(
     let db = crate::db::DbPool(pool.clone());
     let mut all_entries: Vec<CommitEntry> = Vec::new();
     let mut current = filename.to_string();
+    let mut visited: std::collections::HashSet<String> = std::collections::HashSet::new();
 
     loop {
+        if !visited.insert(current.clone()) {
+            break; // サイクル検出 — 同一ファイル名に再到達したら終了
+        }
         let mut entries = commit_history(repo_path, &current)?;
         let is_predecessor = current != filename;
         if is_predecessor {
@@ -791,6 +801,37 @@ mod tests {
         assert!(messages.contains(&"001初版"));
         assert!(messages.contains(&"101初版"));
         assert!(messages.contains(&"201初版"));
+    }
+
+    #[tokio::test]
+    async fn lineage_history_handles_cyclic_lineage_without_hanging() {
+        let dir = tempdir().unwrap();
+        make_repo(dir.path());
+        // A: 701_伏図-1.pdf の初版
+        fs::write(dir.path().join("701_伏図-1.pdf"), b"v1").unwrap();
+        commit(dir.path(), "initial", "user-a").unwrap();
+        // A → B: 701_伏図-1new.pdf にリネーム
+        fs::remove_file(dir.path().join("701_伏図-1.pdf")).unwrap();
+        fs::write(dir.path().join("701_伏図-1new.pdf"), b"new1").unwrap();
+        commit(dir.path(), "rename to new", "user-a").unwrap();
+        // B → A: 701_伏図-1.pdf に戻す
+        fs::remove_file(dir.path().join("701_伏図-1new.pdf")).unwrap();
+        fs::write(dir.path().join("701_伏図-1.pdf"), b"back1").unwrap();
+        commit(dir.path(), "rename back", "user-a").unwrap();
+        let pool = open_pool(dir.path()).await;
+        let db = crate::db::DbPool(pool.clone());
+        // サイクル: 701_伏図-1new.pdf → 701_伏図-1.pdf, 701_伏図-1.pdf → 701_伏図-1new.pdf
+        db.insert_lineage(&[("701_伏図-1new.pdf".to_string(), "701_伏図-1.pdf".to_string())], "d1").await.unwrap();
+        db.insert_lineage(&[("701_伏図-1.pdf".to_string(), "701_伏図-1new.pdf".to_string())], "d2").await.unwrap();
+
+        // 無限ループせずに 3コミット分が返ること
+        let history = lineage_history(dir.path(), "701_伏図-1.pdf", &pool).await.unwrap();
+
+        assert_eq!(history.len(), 3);
+        let messages: Vec<&str> = history.iter().map(|e| e.message.as_str()).collect();
+        assert!(messages.contains(&"initial"));
+        assert!(messages.contains(&"rename to new"));
+        assert!(messages.contains(&"rename back"));
     }
 
     #[tokio::test]
