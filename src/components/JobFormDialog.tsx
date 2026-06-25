@@ -30,7 +30,11 @@ export function JobFormDialog({ open, onOpenChange, editJob }: Props) {
   }, [open, editJob]);
 
   async function handlePickFolder() {
-    const result = await openDialog({ directory: true, multiple: false });
+    const result = await openDialog({
+      directory: true,
+      multiple: false,
+      defaultPath: path || undefined,
+    });
     if (!result || typeof result !== "string") return;
     setPath(result);
     if (!name) setName(result.split(/[\\/]/).pop() ?? result);

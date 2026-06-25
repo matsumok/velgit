@@ -62,6 +62,9 @@ export function useCommitChanges() {
       queryClient.invalidateQueries({
         queryKey: queryKeys.commitHistoryBase(selectedProject),
       });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.headFiles(selectedProject),
+      });
     },
   });
 }

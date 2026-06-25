@@ -200,24 +200,9 @@ function useThemeSync() {
 }
 
 function useCommitCreatedListener() {
-  const queryClient = useQueryClient();
-  const selectedProject = useAppStore((s) => s.selectedProject);
   const setBackgroundTask = useAppStore((s) => s.setBackgroundTask);
   useTauriEvent("commit-created", () => {
     setBackgroundTask("画像処理中...");
-    if (!selectedProject) return;
-    queryClient.invalidateQueries({
-      queryKey: queryKeys.pendingChanges(selectedProject),
-    });
-    queryClient.invalidateQueries({
-      queryKey: queryKeys.drawings(selectedProject),
-    });
-    queryClient.invalidateQueries({
-      queryKey: queryKeys.projectCommits(selectedProject),
-    });
-    queryClient.invalidateQueries({
-      queryKey: queryKeys.commitHistoryBase(selectedProject),
-    });
   });
 }
 

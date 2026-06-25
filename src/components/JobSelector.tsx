@@ -1,9 +1,11 @@
 import {
   CaretDownIcon,
+  FolderOpenIcon,
   PencilSimpleIcon,
   PlusIcon,
   TrashIcon,
 } from "@phosphor-icons/react";
+import { openPath } from "@tauri-apps/plugin-opener";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -46,15 +48,25 @@ export function JobSelector() {
 
   return (
     <>
-      <div className="relative px-2 py-2">
+      <div className="relative px-2 py-2 flex items-center gap-1">
         <Button
           variant="ghost"
           onClick={() => setPopoverOpen((v) => !v)}
-          className="w-full justify-between gap-1 font-medium"
+          className="flex-1 justify-between gap-1 font-medium min-w-0"
         >
           <span className="truncate">{selectedJob?.name ?? "Job未選択"}</span>
           <CaretDownIcon className="size-3 shrink-0 text-muted-foreground" />
         </Button>
+        {selectedJob && (
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            aria-label="フォルダをエクスプローラーで開く"
+            onClick={() => openPath(selectedJob.path)}
+          >
+            <FolderOpenIcon className="size-3" />
+          </Button>
+        )}
 
         {popoverOpen && (
           <>

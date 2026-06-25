@@ -8,6 +8,8 @@ use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
 use tauri::Emitter;
 
+const DEBOUNCE_MS: u64 = 300;
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum WatcherState {
@@ -39,10 +41,19 @@ impl FileWatcher {
                 let _ = app_handle.emit("watcher-state-changed", WatcherState::Native);
                 let handle = app_handle.clone();
                 std::thread::spawn(move || {
-                    for event in rx {
-                        if let Ok(ev) = event {
-                            if is_pdf_event(&ev) {
-                                let _ = handle.emit("pdf-changed", ());
+                    let debounce = Duration::from_millis(DEBOUNCE_MS);
+                    let mut pending = false;
+                    loop {
+                        match rx.recv_timeout(debounce) {
+                            Ok(Ok(ev)) if is_pdf_event(&ev) => {
+                                pending = true;
+                            }
+                            Ok(_) => {}
+                            Err(_) => {
+                                if pending {
+                                    let _ = handle.emit("pdf-changed", ());
+                                    pending = false;
+                                }
                             }
                         }
                     }
