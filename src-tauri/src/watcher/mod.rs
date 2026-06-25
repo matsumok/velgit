@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::RecvTimeoutError;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
@@ -49,12 +50,13 @@ impl FileWatcher {
                                 pending = true;
                             }
                             Ok(_) => {}
-                            Err(_) => {
+                            Err(RecvTimeoutError::Timeout) => {
                                 if pending {
                                     let _ = handle.emit("pdf-changed", ());
                                     pending = false;
                                 }
                             }
+                            Err(RecvTimeoutError::Disconnected) => break,
                         }
                     }
                 });
