@@ -41,7 +41,9 @@ function CommitRowContent({
   return (
     <div className="flex flex-col gap-0.5 pl-2 min-w-0 flex-1">
       <div className="flex items-center gap-1.5">
-        <p className="text-left truncate text-xs font-medium flex-1 min-w-0">{message}</p>
+        <p className="text-left truncate text-xs font-medium flex-1 min-w-0">
+          {message}
+        </p>
         <span
           className={cn(
             "shrink-0 px-1.5 py-0.5 rounded text-xs font-medium",
@@ -111,7 +113,9 @@ function CommitItem({
     );
   }
   return (
-    <div className={cn("px-3 py-2", muted && "bg-muted", faded && "opacity-40")}>
+    <div
+      className={cn("px-3 py-2", muted && "bg-muted", faded && "opacity-40")}
+    >
       {inner}
     </div>
   );
@@ -332,7 +336,9 @@ export function CommitHistoryPanel() {
             <div
               className={cn(
                 "px-3 py-2",
-                selectedHistoryOid !== null && diffKnownMeaningless && "bg-muted",
+                selectedHistoryOid !== null &&
+                  diffKnownMeaningless &&
+                  "bg-muted",
               )}
             >
               <div className="flex items-center gap-1.5 pl-2">
@@ -362,29 +368,27 @@ export function CommitHistoryPanel() {
               }
             />
           ) : null
-        ) : (
-          // off mode: クリックで現在プレビューに戻る
-          hasUncommitted ? (
-            <Button
-              variant="ghost"
-              onClick={() => setSelectedHistoryOid(null)}
-              className={cn(
-                "w-full justify-start h-auto px-3 py-2 font-normal",
-                selectedHistoryOid === null && "bg-muted",
-              )}
-            >
-              <p className="text-xs font-medium pl-2">未コミット</p>
-            </Button>
-          ) : topItem ? (
-            <CommitItem
-              message={topItem.message}
-              author={topItem.author}
-              timestamp={topItem.timestamp}
-              muted={selectedHistoryOid === null}
-              onClick={() => setSelectedHistoryOid(null)}
-            />
-          ) : null
-        )}
+        ) : // off mode: クリックで現在プレビューに戻る
+        hasUncommitted ? (
+          <Button
+            variant="ghost"
+            onClick={() => setSelectedHistoryOid(null)}
+            className={cn(
+              "w-full justify-start h-auto px-3 py-2 font-normal",
+              selectedHistoryOid === null && "bg-muted",
+            )}
+          >
+            <p className="text-xs font-medium pl-2">未コミット</p>
+          </Button>
+        ) : topItem ? (
+          <CommitItem
+            message={topItem.message}
+            author={topItem.author}
+            timestamp={topItem.timestamp}
+            muted={selectedHistoryOid === null}
+            onClick={() => setSelectedHistoryOid(null)}
+          />
+        ) : null}
       </div>
 
       <Separator />
