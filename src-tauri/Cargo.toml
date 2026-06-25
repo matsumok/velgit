@@ -1,6 +1,6 @@
 [package]
 name = "velgit"
-version = "0.1.2"
+version = "0.1.3"
 description = "建築・設計事務所向け図面バージョン管理ツール"
 authors = ["matsumok"]
 edition = "2021"
