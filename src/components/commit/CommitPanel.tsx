@@ -1,7 +1,10 @@
 import { GitPullRequestIcon } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { useGetHeadFiles } from "../../api/headFiles";
-import { useCommitChanges, useGetPendingChanges } from "../../api/pendingChanges";
+import {
+  useCommitChanges,
+  useGetPendingChanges,
+} from "../../api/pendingChanges";
 import { cn } from "../../lib/utils";
 import { useAppStore } from "../../store/useAppStore";
 import { Button } from "../ui/button";

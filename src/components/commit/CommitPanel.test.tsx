@@ -200,11 +200,19 @@ describe("CommitPanel — 引き継ぎ元設定", () => {
     } as ReturnType<typeof useGetHeadFiles>);
     renderPanel(["A.pdf", "B.pdf"]);
 
-    await user.click(screen.getByRole("button", { name: "A.pdf の引き継ぎ元を設定" }));
-    expect(within(screen.getByRole("dialog")).getByText("B.pdf")).toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: "A.pdf の引き継ぎ元を設定" }),
+    );
+    expect(
+      within(screen.getByRole("dialog")).getByText("B.pdf"),
+    ).toBeInTheDocument();
     await user.click(within(screen.getByRole("dialog")).getByText("B.pdf"));
 
-    await user.click(screen.getByRole("button", { name: "B.pdf の引き継ぎ元を設定" }));
-    expect(within(screen.getByRole("dialog")).getByText("A.pdf")).toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: "B.pdf の引き継ぎ元を設定" }),
+    );
+    expect(
+      within(screen.getByRole("dialog")).getByText("A.pdf"),
+    ).toBeInTheDocument();
   });
 });
