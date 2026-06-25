@@ -16,6 +16,7 @@ describe("mergeTimelineEntries", () => {
         timestamp: 100,
         changeType: null,
         blobOid: null,
+        sourceFilename: null,
       },
       {
         oid: "new",
@@ -24,6 +25,7 @@ describe("mergeTimelineEntries", () => {
         timestamp: 200,
         changeType: null,
         blobOid: null,
+        sourceFilename: null,
       },
     ];
     const result = mergeTimelineEntries(commits, []);
@@ -68,6 +70,7 @@ describe("mergeTimelineEntries", () => {
         timestamp: 300,
         changeType: null,
         blobOid: null,
+        sourceFilename: null,
       },
       {
         oid: "c2",
@@ -76,6 +79,7 @@ describe("mergeTimelineEntries", () => {
         timestamp: 100,
         changeType: null,
         blobOid: null,
+        sourceFilename: null,
       },
     ];
     const releases = [
@@ -114,6 +118,7 @@ describe("mergeTimelineEntries", () => {
         timestamp: 500,
         changeType: null,
         blobOid: null,
+        sourceFilename: null,
       },
     ];
     const releases = [
@@ -142,6 +147,7 @@ describe("mergeTimelineEntries", () => {
         timestamp: 1000,
         changeType: null,
         blobOid: null,
+        sourceFilename: null,
       },
     ];
     const result = mergeTimelineEntries(commits, []);
