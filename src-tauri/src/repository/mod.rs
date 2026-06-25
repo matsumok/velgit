@@ -226,6 +226,10 @@ pub async fn lineage_history(
         }
     }
 
+    // 現ファイル側のエントリを優先しつつ、同一 OID の重複を除去
+    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+    all_entries.retain(|e| seen.insert(e.oid.clone()));
+
     all_entries.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
     Ok(all_entries)
 }
@@ -850,6 +854,33 @@ mod tests {
         assert_eq!(lineage.len(), direct.len());
         assert_eq!(lineage[0].oid, direct[0].oid);
         assert_eq!(lineage[1].oid, direct[1].oid);
+    }
+
+    #[tokio::test]
+    async fn lineage_history_deduplicates_shared_commit() {
+        // スワップ: A と B が同一コミットに含まれる場合、そのコミットが1度だけ現れる
+        let dir = tempdir().unwrap();
+        make_repo(dir.path());
+        // 共有コミット: A.pdf と B.pdf を同時にコミット
+        fs::write(dir.path().join("A.pdf"), b"a").unwrap();
+        fs::write(dir.path().join("B.pdf"), b"b").unwrap();
+        commit(dir.path(), "共有コミット", "user-a").unwrap();
+        // その後 A.pdf だけ更新
+        fs::write(dir.path().join("A.pdf"), b"a2").unwrap();
+        commit(dir.path(), "A更新", "user-a").unwrap();
+        let pool = open_pool(dir.path()).await;
+        // A.pdf の lineage predecessor に B.pdf を設定
+        crate::db::DbPool(pool.clone())
+            .insert_lineage(&[("A.pdf".to_string(), "B.pdf".to_string())], "dummy")
+            .await
+            .unwrap();
+
+        let history = lineage_history(dir.path(), "A.pdf", &pool).await.unwrap();
+
+        // 「共有コミット」は A.pdf の履歴にも B.pdf の履歴にも含まれるが、1度だけ現れる
+        let shared_count = history.iter().filter(|e| e.message == "共有コミット").count();
+        assert_eq!(shared_count, 1, "共有コミットが重複している");
+        assert_eq!(history.len(), 2); // 「共有コミット」と「A更新」
     }
 
     // ─── resolve_blob_with_lineage tests ─────────────────────────────────────

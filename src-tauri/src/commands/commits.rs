@@ -34,6 +34,19 @@ pub async fn commit_changes(
         .map(|c| c.filename.clone())
         .collect();
 
+    if !predecessors.is_empty() {
+        let included_set: std::collections::HashSet<&str> =
+            included_files.iter().map(String::as_str).collect();
+        for p in &predecessors {
+            if !included_set.contains(p.predecessor.as_str()) {
+                return Err(format!(
+                    "引き継ぎ元「{}」はこのコミット対象に含まれていません。同一コミットに含めてください。",
+                    p.predecessor
+                ));
+            }
+        }
+    }
+
     let oid = repository::commit(&path, &message, &created_by, &included_files)
         .map_err(|e| e.to_string())?;
     let oid_str = oid.to_string();

@@ -1,7 +1,7 @@
 import { GitPullRequestIcon } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import { useGetHeadFiles } from "../../api/headFiles";
-import { useCommitChanges } from "../../api/pendingChanges";
+import { useCommitChanges, useGetPendingChanges } from "../../api/pendingChanges";
 import { cn } from "../../lib/utils";
 import { useAppStore } from "../../store/useAppStore";
 import { Button } from "../ui/button";
@@ -25,6 +25,8 @@ export function CommitPanel({
 }) {
   const { mutate: commitChanges, isPending, error } = useCommitChanges();
   const { data: headFiles = [] } = useGetHeadFiles();
+  const { data: pendingChanges = [] } = useGetPendingChanges();
+  const statusMap = new Map(pendingChanges.map((c) => [c.filename, c.status]));
   const username = useAppStore((s) => s.username);
   const setBackgroundTask = useAppStore((s) => s.setBackgroundTask);
   const [message, setMessage] = useState("");
@@ -84,6 +86,7 @@ export function CommitPanel({
     : undefined;
   const candidates = headFiles.filter(
     (f) =>
+      selectedFilenames.includes(f) &&
       f !== dialogOpenFor &&
       (!usedPredecessors.has(f) || f === currentPredecessor),
   );
@@ -99,6 +102,8 @@ export function CommitPanel({
         <TableBody>
           {selectedFilenames.map((filename) => {
             const predecessor = predecessors.get(filename);
+            const status = statusMap.get(filename);
+            const isDeleted = status === "deleted";
             return (
               <TableRow
                 key={filename}
@@ -106,29 +111,43 @@ export function CommitPanel({
               >
                 <TableCell className="py-1 text-xs pl-4 pr-2">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="truncate flex-1">{filename}</span>
-                    {predecessor && (
+                    {status === "new" && (
+                      <span className="shrink-0 px-1 rounded text-xs bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+                        新規
+                      </span>
+                    )}
+                    <span
+                      className={cn(
+                        "truncate flex-1",
+                        isDeleted && "line-through opacity-50",
+                      )}
+                    >
+                      {filename}
+                    </span>
+                    {predecessor && !isDeleted && (
                       <span className="text-muted-foreground shrink-0 truncate max-w-28">
                         ← {predecessor}
                       </span>
                     )}
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label={`${filename} の引き継ぎ元を設定`}
-                      title={
-                        predecessor
-                          ? `引き継ぎ元: ${predecessor}`
-                          : "引き継ぎ元を設定"
-                      }
-                      onClick={() => setDialogOpenFor(filename)}
-                      className={cn(
-                        "h-5 w-5 shrink-0",
-                        predecessor && "text-primary",
-                      )}
-                    >
-                      <GitPullRequestIcon size={12} />
-                    </Button>
+                    {!isDeleted && (
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`${filename} の引き継ぎ元を設定`}
+                        title={
+                          predecessor
+                            ? `引き継ぎ元: ${predecessor}`
+                            : "引き継ぎ元を設定"
+                        }
+                        onClick={() => setDialogOpenFor(filename)}
+                        className={cn(
+                          "h-5 w-5 shrink-0",
+                          predecessor && "text-primary",
+                        )}
+                      >
+                        <GitPullRequestIcon size={12} />
+                      </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
