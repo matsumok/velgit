@@ -46,8 +46,7 @@ function HeadItem({
       )}
     >
       <TimelineDot selected={selected} />
-      <span className="font-semibold">HEAD</span>
-      <span className="ml-2 text-muted-foreground">（作業コピー）</span>
+      <span className="font-semibold">作業中</span>
     </Button>
   );
 }

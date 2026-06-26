@@ -54,7 +54,7 @@ export function JobSelector() {
           onClick={() => setPopoverOpen((v) => !v)}
           className="flex-1 justify-between gap-1 font-medium min-w-0"
         >
-          <span className="truncate">{selectedJob?.name ?? "Job未選択"}</span>
+          <span className="truncate">{selectedJob?.name ?? "プロジェクト未選択"}</span>
           <CaretDownIcon className="size-3 shrink-0 text-muted-foreground" />
         </Button>
         {selectedJob && (
@@ -80,7 +80,7 @@ export function JobSelector() {
             <div className="absolute left-2 right-2 top-full z-20 mt-0.5 rounded border bg-popover text-popover-foreground shadow-md p-1">
               {jobs.length === 0 ? (
                 <p className="px-2 py-1.5 text-xs text-muted-foreground">
-                  Jobが登録されていません
+                  プロジェクトが登録されていません
                 </p>
               ) : (
                 <ul>
@@ -136,7 +136,7 @@ export function JobSelector() {
                   className="w-full justify-start text-muted-foreground"
                 >
                   <PlusIcon className="size-3" />
-                  新規Job登録
+                  新規プロジェクト登録
                 </Button>
               </div>
             </div>
@@ -158,7 +158,7 @@ export function JobSelector() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Jobを削除しますか？</DialogTitle>
+            <DialogTitle>プロジェクトを削除しますか？</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
             「{deleteTarget?.name}」を削除します。この操作は取り消せません。
