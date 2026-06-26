@@ -63,7 +63,9 @@ export function JobFormDialog({ open, onOpenChange, editJob }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{isEdit ? "プロジェクト編集" : "新規プロジェクト登録"}</DialogTitle>
+          <DialogTitle>
+            {isEdit ? "プロジェクト編集" : "新規プロジェクト登録"}
+          </DialogTitle>
         </DialogHeader>
         <div className="flex flex-col gap-3 min-w-0">
           <div>
